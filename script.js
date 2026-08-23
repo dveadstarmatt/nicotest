@@ -18,7 +18,13 @@ const authClient =
   supabaseUrl &&
   supabaseAnonKey &&
   supabaseAnonKey !== "YOUR_SUPABASE_PUBLISHABLE_KEY"
-    ? window.supabase.createClient(supabaseUrl, supabaseAnonKey)
+    ? window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
     : null;
 let currentUser = null;
 
@@ -677,12 +683,18 @@ async function initializeAuth() {
     return;
   }
 
-  const { data, error } = await authClient.auth.getSession();
-  if (error) console.error("Failed to load sign-in session:", error);
-  updateAuthUi(data.session?.user || null);
   authClient.auth.onAuthStateChange((_event, session) => {
     updateAuthUi(session?.user || null);
   });
+
+  const { data, error } = await authClient.auth.getSession();
+  if (error) {
+    console.error("Failed to load sign-in session:", error);
+    document.getElementById("user-status").textContent =
+      `Sign-in error: ${error.message}`;
+    return;
+  }
+  updateAuthUi(data.session?.user || null);
 }
 
 const newChatBtn =
