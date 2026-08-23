@@ -7,6 +7,34 @@ const configuredApiUrl = document
   ?.content.trim();
 const apiBaseUrl =
   configuredApiUrl || `http://${window.location.hostname || "127.0.0.1"}:8000`;
+const supabaseUrl = document.querySelector(
+  'meta[name="supabase-url"]',
+)?.content;
+const supabaseAnonKey = document.querySelector(
+  'meta[name="supabase-anon-key"]',
+)?.content;
+const authClient =
+  window.supabase &&
+  supabaseUrl &&
+  supabaseAnonKey &&
+  supabaseAnonKey !== "YOUR_SUPABASE_PUBLISHABLE_KEY"
+    ? window.supabase.createClient(supabaseUrl, supabaseAnonKey)
+    : null;
+let currentUser = null;
+
+async function apiFetch(url, options = {}) {
+  if (!authClient) throw new Error("Supabase authentication is not configured");
+  const { data } = await authClient.auth.getSession();
+  if (!data.session) throw new Error("Sign-in required");
+
+  const headers = new Headers(options.headers || {});
+  headers.set("Authorization", `Bearer ${data.session.access_token}`);
+  return fetch(url, { ...options, headers });
+}
+
+function conversationStorageKey() {
+  return currentUser ? `active_chat_id:${currentUser.id}` : "active_chat_id";
+}
 
 function createConversationId() {
   if (crypto.randomUUID) return crypto.randomUUID();
@@ -30,12 +58,15 @@ function createConversationId() {
 }
 
 const savedConversationId = localStorage.getItem("active_chat_id");
-const isValidConversationId =
-  savedConversationId &&
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    savedConversationId,
+function isValidConversationId(value) {
+  return Boolean(
+    value &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    ),
   );
-let currentConversationId = isValidConversationId
+}
+let currentConversationId = isValidConversationId(savedConversationId)
   ? savedConversationId
   : createConversationId();
 localStorage.setItem("active_chat_id", currentConversationId);
@@ -231,7 +262,7 @@ function focusInput() {
 function startNewChat() {
   stopSpeech();
   currentConversationId = createConversationId();
-  localStorage.setItem("active_chat_id", currentConversationId);
+  localStorage.setItem(conversationStorageKey(), currentConversationId);
   clearChatBox();
   loadRecentConversations();
   focusInput();
@@ -253,7 +284,7 @@ async function renameConversation(id, oldTitle, e) {
   if (!newTitle || newTitle.trim() === "") return;
 
   try {
-    await fetch(`${apiBaseUrl}/conversations/${id}`, {
+    await apiFetch(`${apiBaseUrl}/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: newTitle.trim() }),
@@ -269,7 +300,7 @@ async function deleteConversation(id, e) {
   if (!confirm("Delete this conversation?")) return;
 
   try {
-    await fetch(`${apiBaseUrl}/conversations/${id}`, {
+    await apiFetch(`${apiBaseUrl}/conversations/${id}`, {
       method: "DELETE",
     });
     if (id === currentConversationId) {
@@ -284,7 +315,7 @@ async function deleteConversation(id, e) {
 
 async function loadRecentConversations() {
   try {
-    const response = await fetch(`${apiBaseUrl}/conversations`);
+    const response = await apiFetch(`${apiBaseUrl}/conversations`);
     const conversations = await response.json();
 
     const recentsList = document.getElementById("recent-chats");
@@ -331,7 +362,9 @@ async function loadRecentConversations() {
 
 async function loadMessages() {
   try {
-    const res = await fetch(`${apiBaseUrl}/messages/${currentConversationId}`);
+    const res = await apiFetch(
+      `${apiBaseUrl}/messages/${currentConversationId}`,
+    );
     const data = await res.json();
     clearChatBox();
     if (Array.isArray(data)) {
@@ -421,7 +454,7 @@ async function sendMessage() {
   let sentenceBuffer = "";
 
   try {
-    const response = await fetch(`${apiBaseUrl}/chat/stream`, {
+    const response = await apiFetch(`${apiBaseUrl}/chat/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: currentAbortController.signal,
@@ -588,6 +621,70 @@ function exportChat() {
   URL.revokeObjectURL(url);
 }
 
+function updateAuthUi(user) {
+  const userName = document.getElementById("user-name");
+  const userAvatar = document.getElementById("user-avatar");
+  const userStatus = document.getElementById("user-status");
+  const signInButton = document.getElementById("sign-in-btn");
+  const signOutButton = document.getElementById("sign-out-btn");
+
+  currentUser = user;
+  if (!user) {
+    userName.textContent = "Not signed in";
+    userAvatar.textContent = "?";
+    userStatus.textContent = "Sign in to save chats";
+    signInButton.hidden = false;
+    signOutButton.hidden = true;
+    clearChatBox();
+    return;
+  }
+
+  const displayName =
+    user.user_metadata?.full_name ||
+    user.user_metadata?.name ||
+    user.email?.split("@")[0] ||
+    "User";
+  userName.textContent = displayName;
+  userAvatar.textContent = displayName.charAt(0).toUpperCase();
+  userStatus.textContent = "Online";
+  signInButton.hidden = true;
+  signOutButton.hidden = false;
+
+  const savedId = localStorage.getItem(`active_chat_id:${user.id}`);
+  currentConversationId = isValidConversationId(savedId)
+    ? savedId
+    : createConversationId();
+  localStorage.setItem(`active_chat_id:${user.id}`, currentConversationId);
+  loadMessages();
+  loadRecentConversations();
+}
+
+async function signInWithGoogle() {
+  if (!authClient) {
+    alert("Supabase authentication is not configured yet.");
+    return;
+  }
+  const { error } = await authClient.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: window.location.href.split("#")[0] },
+  });
+  if (error) alert(`Sign-in failed: ${error.message}`);
+}
+
+async function initializeAuth() {
+  if (!authClient) {
+    updateAuthUi(null);
+    return;
+  }
+
+  const { data, error } = await authClient.auth.getSession();
+  if (error) console.error("Failed to load sign-in session:", error);
+  updateAuthUi(data.session?.user || null);
+  authClient.auth.onAuthStateChange((_event, session) => {
+    updateAuthUi(session?.user || null);
+  });
+}
+
 const newChatBtn =
   document.querySelector(".new-chat-btn") ||
   document.getElementById("newChatBtn");
@@ -595,8 +692,14 @@ if (newChatBtn) {
   newChatBtn.onclick = startNewChat;
 }
 
+document
+  .getElementById("sign-in-btn")
+  ?.addEventListener("click", signInWithGoogle);
+document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
+  await authClient?.auth.signOut();
+});
+
 // Initial setup
 ensureTypingIndicator();
-loadMessages();
-loadRecentConversations();
+initializeAuth();
 focusInput();
