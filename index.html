@@ -10,7 +10,10 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
     <meta name="nico-api-url" content="https://nicotest-1.onrender.com">
+    <meta name="supabase-url" content="https://azsdhrotjzfqhnbfnohz.supabase.co">
+    <meta name="supabase-anon-key" content="sb_publishable_4dbScBcCdNfUBwPKQSm5QQ_xUK--1vK">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -38,12 +41,14 @@
 
         <div class="sidebar-footer">
             <div class="user-profile">
-                <div class="avatar">M</div>
+                <div class="avatar" id="user-avatar">?</div>
                 <div class="user-info">
-                    <span class="user-name">Matt</span>
-                    <span class="status-online"><span class="dot"></span>Online</span>
+                    <span class="user-name" id="user-name">Not signed in</span>
+                    <span class="status-online" id="user-status">Sign in to save chats</span>
                 </div>
             </div>
+            <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
+            <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
         </div>
     </aside>
 
@@ -54,7 +59,7 @@
             <button id="exportBtn" class="export-btn" onclick="exportChat()" title="Export Chat History">
                 ⬇ Export Chat
             </button>
-            <span class="model-badge">Nico v1.2 • System OS</span>
+            <span class="model-badge">Nico v1.5 • System OS</span>
         </header>
 
         <div class="chat-container">
