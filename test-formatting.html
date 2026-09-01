@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nico Formatting Test</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- Glass Sidebar -->
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="sparkle">❖</span> NICO
+            </div>
+        </div>
+
+        <button class="new-chat-btn">
+            <span>+</span> New chat
+        </button>
+
+        <div class="sidebar-section">
+            <p class="section-title">Recents</p>
+            <div id="recent-chats"></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar">M</div>
+                <div class="user-info">
+                    <span class="user-name">Test User</span>
+                    <span class="status-online">Online</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="top-header">
+            <button class="mobile-menu-btn">☰</button>
+            <button class="export-btn">⬇ Export Chat</button>
+            <span class="model-badge">Nico v1.5 • System OS</span>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-box">
+                <div class="message assistant">
+                    <div>
+                        <p>Here's a test with proper formatting:</p>
+                        <h3>Bullet Points Example:</h3>
+                        <ul>
+                            <li>First bullet point with proper spacing</li>
+                            <li>Second bullet point with more content</li>
+                            <li>Third bullet point
+                                <ul>
+                                    <li>Nested item 1</li>
+                                    <li>Nested item 2</li>
+                                </ul>
+                            </li>
+                            <li>Fourth bullet point</li>
+                        </ul>
+                        <h3>Numbered List Example:</h3>
+                        <ol>
+                            <li>First numbered item</li>
+                            <li>Second numbered item with explanation</li>
+                            <li>Third numbered item
+                                <ol>
+                                    <li>Nested number 1</li>
+                                    <li>Nested number 2</li>
+                                </ol>
+                            </li>
+                            <li>Fourth numbered item</li>
+                        </ol>
+                        <h3>Mixed Content:</h3>
+                        <p>Here's a paragraph before the mixed list.</p>
+                        <ul>
+                            <li><strong>Bold text</strong> in a bullet</li>
+                            <li><em>Italic text</em> in a bullet</li>
+                            <li>Code example: <code>const x = 42;</code></li>
+                            <li>Final bullet with proper spacing</li>
+                        </ul>
+                        <p>And here's a paragraph after the list with proper spacing.</p>
+                    </div>
+                </div>
+
+                <div class="message user">
+                    <div>This is great! The formatting looks much better now.</div>
+                </div>
+
+                <div class="message assistant">
+                    <div>
+                        <p><strong>Benefits of proper formatting:</strong></p>
+                        <ul>
+                            <li>Improved readability</li>
+                            <li>Better visual hierarchy</li>
+                            <li>Proper spacing between elements</li>
+                            <li>Support for nested lists</li>
+                        </ul>
+                        <blockquote>This is a blockquote with proper styling and spacing.</blockquote>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Floating Glass Input Bar -->
+        <div class="input-wrapper">
+            <div class="input-pill">
+                <input type="text" placeholder="Ask Nico..." value="test message">
+                <div class="input-actions">
+                    <button class="icon-btn">🎤</button>
+                    <button class="send-btn">Send</button>
+                </div>
+            </div>
+            <p class="disclaimer">Nico OS may display inaccurate info. Verify system actions.</p>
+        </div>
+    </main>
+</div>
+
+</body>
+</html>

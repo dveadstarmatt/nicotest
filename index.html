@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NICO AI</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0f1117">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <meta name="nico-api-url" content="https://nicotest-1.onrender.com">
+    <meta name="supabase-url" content="https://azsdhrotjzfqhnbfnohz.supabase.co">
+    <meta name="supabase-anon-key" content="sb_publishable_4dbScBcCdNfUBwPKQSm5QQ_xUK--1vK">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div class="app-layout">
+    <!-- Mobile Sidebar Overlay Backdrop -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Glass Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="sparkle">❖</span> NICO
+            </div>
+        </div>
+
+        <button class="new-chat-btn">
+            <span>+</span> New chat
+        </button>
+
+        <div class="sidebar-section">
+            <p class="section-title">Recents</p>
+            <div class="history-list" id="historyList"></div>
+            <div id="recent-chats"></div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="avatar" id="user-avatar">?</div>
+                <div class="user-info">
+                    <span class="user-name" id="user-name">Not signed in</span>
+                    <span class="status-online" id="user-status">Sign in to save chats</span>
+                </div>
+            </div>
+            <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
+            <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <header class="top-header">
+            <button class="mobile-menu-btn" id="menu-toggle" type="button" aria-label="Toggle menu">☰</button>
+            <button id="exportBtn" class="export-btn" onclick="exportChat()" title="Export Chat History">
+                ⬇ Export Chat
+            </button>
+            <span class="model-badge">Nico v1.5 • System OS</span>
+        </header>
+
+        <div class="chat-container">
+            <div class="chat-box" id="chatBox">
+                <div id="typingIndicator" class="message assistant typing" style="display: none;">Nico is thinking...</div>
+            </div>
+        </div>
+
+        <!-- Floating Glass Input Bar -->
+        <div class="input-wrapper">
+            <div class="input-pill">
+                <input type="text" id="userInput" placeholder="Ask Nico..." onkeydown="if(event.key==='Enter') sendMessage()">
+                <div class="input-actions">
+                    <button id="micBtn" class="icon-btn" onclick="toggleSpeech()" title="Voice Input">🎤</button>
+                    <button class="send-btn" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+            <p class="disclaimer">Nico OS may display inaccurate info. Verify system actions.</p>
+        </div>
+    </main>
+</div>
+
+<script src="script.js"></script>
+<script>
+    if ("serviceWorker" in navigator) {
+        navigator.serviceWorker.register("sw.js");
+    }
+</script>
+
+</body>
+</html>
