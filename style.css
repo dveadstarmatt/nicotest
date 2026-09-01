@@ -409,6 +409,8 @@ body {
 .code-container {
     position: relative;
     margin: 8px 0;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .code-container pre {
@@ -417,6 +419,9 @@ body {
     border-radius: 8px;
     padding: 12px;
     overflow-x: auto;
+    max-width: 100%;
+    word-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .copy-code-btn {
@@ -615,6 +620,17 @@ body {
 
     .message li {
         margin: 0.3em 0;
+    }
+
+    .code-container {
+        max-width: 100%;
+        overflow: hidden;
+    }
+
+    .code-container pre {
+        max-width: 100%;
+        font-size: 0.8rem;
+        padding: 10px;
     }
 
     .top-header {
