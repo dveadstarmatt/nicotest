@@ -236,6 +236,10 @@ function attachCodeCopyButtons(messageDiv) {
 }
 
 function appendMessage(role, text) {
+  // Update state for non-empty chats
+  appLayout?.classList.remove("new-chat-mode");
+  appLayout?.classList.add("active-chat-mode");
+
   const msgDiv = document.createElement("div");
   msgDiv.className = `message ${role}`;
 
@@ -258,6 +262,8 @@ function appendMessage(role, text) {
 
 function clearChatBox() {
   chatBox.innerHTML = "";
+  appLayout?.classList.add("new-chat-mode");
+  appLayout?.classList.remove("active-chat-mode");
   ensureTypingIndicator();
 }
 
@@ -629,6 +635,7 @@ function exportChat() {
 
 function updateAuthUi(user) {
   const userName = document.getElementById("user-name");
+  const welcomeName = document.getElementById("welcomeName");
   const userAvatar = document.getElementById("user-avatar");
   const userStatus = document.getElementById("user-status");
   const signInButton = document.getElementById("sign-in-btn");
@@ -637,6 +644,7 @@ function updateAuthUi(user) {
   currentUser = user;
   if (!user) {
     userName.textContent = "Not signed in";
+    if (welcomeName) welcomeName.textContent = "User";
     userAvatar.textContent = "?";
     userStatus.textContent = "Sign in to save chats";
     signInButton.hidden = false;
@@ -651,6 +659,7 @@ function updateAuthUi(user) {
     user.email?.split("@")[0] ||
     "User";
   userName.textContent = displayName;
+  if (welcomeName) welcomeName.textContent = displayName;
   userAvatar.textContent = displayName.charAt(0).toUpperCase();
   userStatus.textContent = "Online";
   signInButton.hidden = true;

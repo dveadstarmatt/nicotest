@@ -12,3 +12,10 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+
+  # Static frontend. Do not use Python/gunicorn for this URL.
+  - type: web
+    name: nico-ai
+    runtime: static
+    buildCommand: mkdir -p public && cp index.html style.css script.js manifest.json sw.js icon.svg public/
+    staticPublishPath: ./public
