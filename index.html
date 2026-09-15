@@ -40,15 +40,16 @@
         </div>
 
         <div class="sidebar-footer">
-            <div class="user-profile">
-                <div class="avatar" id="user-avatar">?</div>
-                <div class="user-info">
-                    <span class="user-name" id="user-name">Not signed in</span>
-                    <span class="status-online" id="user-status">Sign in to save chats</span>
+            <div class="user-profile-row">
+                <div class="user-profile">
+                    <div class="avatar" id="user-avatar">?</div>
+                    <div class="user-info">
+                        <span class="user-name" id="user-name">Not signed in</span>
+                        <span class="status-online" id="user-status">Sign in to save chats</span>
+                    </div>
                 </div>
+                <button id="settingsBtn" class="settings-btn" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings">⚙</button>
             </div>
-            <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
-            <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
         </div>
     </aside>
 
@@ -60,7 +61,6 @@
                 ⬇ Export Chat
             </button>
             <span class="model-badge">Nico v2 • System OS</span>
-            <button id="settingsBtn" class="settings-btn" type="button" aria-label="Open settings" aria-expanded="false" aria-controls="settingsPanel" title="Settings">⚙</button>
         </header>
 
         <section class="settings-panel" id="settingsPanel" aria-hidden="true">
@@ -126,6 +126,10 @@
                     </select>
                 </label>
                 <div class="mascot-preview" id="mascotPreview" aria-live="polite">✦ <span>Current mascot</span></div>
+                <div class="settings-auth-actions">
+                    <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
+                    <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
+                </div>
                 <div class="settings-actions">
                     <button id="exportMarkdownBtn" type="button">Export Markdown</button>
                     <button id="exportJsonBtn" type="button">Export JSON</button>

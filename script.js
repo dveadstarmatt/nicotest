@@ -84,7 +84,8 @@ function applySettings() {
   const mascotLogo = document.getElementById("mascotLogo");
   const mascotPreview = document.getElementById("mascotPreview");
   if (mascotLogo) mascotLogo.textContent = settings.avatar;
-  if (mascotPreview) mascotPreview.firstChild.textContent = `${settings.avatar} `;
+  if (mascotPreview)
+    mascotPreview.firstChild.textContent = `${settings.avatar} `;
   document.querySelectorAll(".avatar-tag").forEach((tag) => {
     tag.textContent = settings.avatar;
   });

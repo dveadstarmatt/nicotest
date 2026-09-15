@@ -210,6 +210,18 @@ body::before {
 .sidebar-footer {
     border-top: var(--glass-border);
     padding-top: 12px;
+    position: relative;
+}
+
+.user-profile-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.user-profile-row .user-profile {
+    min-width: 0;
+    flex: 1;
 }
 
 .auth-btn {
@@ -305,6 +317,7 @@ body::before {
     color: var(--text-primary);
     cursor: pointer;
     font-size: 1.05rem;
+    flex: 0 0 38px;
 }
 
 .settings-btn:hover, .settings-btn[aria-expanded="true"] { background: var(--accent); color: #071016; }
@@ -312,9 +325,11 @@ body::before {
 .export-btn, .settings-btn { border-color: color-mix(in srgb, var(--accent) 38%, transparent); }
 
 .settings-panel {
-    position: absolute;
-    top: 62px;
-    right: 20px;
+    position: fixed;
+    left: calc(var(--sidebar-width) + 12px);
+    bottom: 12px;
+    top: auto;
+    right: auto;
     z-index: 1000;
     width: min(350px, calc(100vw - 32px));
     max-height: min(720px, calc(100vh - 84px));
@@ -344,6 +359,8 @@ body::before {
 .settings-actions button { cursor: pointer; }
 .settings-actions button:hover { background: var(--accent); color: #071016; }
 .settings-actions button:last-child { grid-column: 1 / -1; }
+.settings-auth-actions { display: grid; gap: 7px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+.settings-auth-actions .auth-btn { margin-top: 0; }
 .mascot-preview { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 1.15rem; }
 .mascot-preview span { color: var(--text-muted); font-size: 0.7rem; }
 
@@ -1123,6 +1140,14 @@ button.export-btn:hover {
 
     .top-header {
         padding: 12px 16px;
+    }
+
+    .settings-panel {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        width: auto;
+        max-height: calc(100vh - 24px);
     }
 }
 
