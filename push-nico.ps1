@@ -29,10 +29,12 @@ git commit -m $message
 # Push to GitHub
 Write-Host "Pushing to GitHub..." -ForegroundColor Yellow
 git push origin main
+$pushExitCode = $LASTEXITCODE
 
 # Show result
-if ($LASTEXITCODE -eq 0) {
+if ($pushExitCode -eq 0) {
     Write-Host "`n✅ Successfully pushed to GitHub!" -ForegroundColor Green
 } else {
     Write-Host "`n❌ Push failed. Check the errors above." -ForegroundColor Red
+    exit $pushExitCode
 }
