@@ -19,14 +19,18 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_VISION_MODELS = [
+configured_vision_models = [
   model.strip()
-  for model in os.getenv(
-    "GROQ_VISION_MODELS",
-    "meta-llama/llama-4-scout-17b-16e-instruct,llama-3.2-11b-vision-preview",
-  ).split(",")
+  for model in os.getenv("GROQ_VISION_MODELS", "").split(",")
   if model.strip()
 ]
+GROQ_VISION_MODELS = list(dict.fromkeys(
+  configured_vision_models + [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+    "qwen/qwen3-vl-32b-instruct",
+  ]
+))
 CREATOR_NAME = os.getenv("CREATOR_NAME", "Matt Andrei Crisostomo")
 CREATOR_HOBBIES = os.getenv("CREATOR_HOBBIES", "Not provided")
 
@@ -322,11 +326,22 @@ async def chat_stream(
         except Exception as error:
           last_error = error
           error_text = str(error).lower()
-          if not image_request or "model_not_found" not in error_text:
+          model_unavailable = any(
+            code in error_text
+            for code in (
+              "model_not_found",
+              "model_decommissioned",
+              "model_deprecated",
+            )
+          )
+          if not image_request or not model_unavailable:
             break
 
       if not full_reply and last_error:
-        if image_request and "model_not_found" in str(last_error).lower():
+        if image_request and any(
+          code in str(last_error).lower()
+          for code in ("model_not_found", "model_decommissioned", "model_deprecated")
+        ):
           full_reply = (
             "Nico could not analyze this image because the Groq account has no "
             "access to an enabled vision model. Set GROQ_VISION_MODELS in the "
