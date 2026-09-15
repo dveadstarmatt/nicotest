@@ -19,7 +19,7 @@
 
 <div class="app-layout">
     <!-- Mobile Sidebar Overlay Backdrop -->
-    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
 
     <!-- Glass Sidebar -->
     <aside class="sidebar" id="sidebar">
@@ -55,7 +55,7 @@
     <!-- Main Content Area -->
     <main class="main-content">
         <header class="top-header">
-            <button class="mobile-menu-btn" id="menu-toggle" type="button" aria-label="Toggle menu">☰</button>
+            <button class="mobile-menu-btn" id="menu-toggle" type="button" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
             <button id="exportBtn" class="export-btn" onclick="exportChat()" title="Export Chat History">
                 ⬇ Export Chat
             </button>
@@ -77,12 +77,33 @@
         <!-- Floating Glass Input Bar -->
         <div class="input-wrapper">
             <div class="input-pill">
-                <input type="text" id="userInput" placeholder="Ask Nico..." onkeydown="if(event.key==='Enter') sendMessage()">
+                <button id="addBtn" class="icon-btn add-btn" type="button" aria-label="Open tools" aria-expanded="false" aria-controls="addFilesDropdown" title="Open tools">+</button>
+                <input type="text" id="userInput" placeholder="Ask Nico...">
                 <div class="input-actions">
-                    <button id="micBtn" class="icon-btn" onclick="toggleSpeech()" title="Voice Input">🎤</button>
-                    <button class="send-btn" onclick="sendMessage()">Send</button>
+                    <button id="micBtn" class="icon-btn" type="button" title="Voice Input">🎤</button>
+                    <button id="sendBtn" class="send-btn" type="button">Send</button>
                 </div>
             </div>
+
+            <div class="attachment-list" id="attachmentList" aria-live="polite"></div>
+
+            <div class="add-files-dropdown" id="addFilesDropdown" aria-hidden="true">
+                <button class="dropdown-item" id="addFilesBtn" type="button">
+                    <span class="dropdown-icon">📄</span>
+                    <span>Add Files</span>
+                </button>
+                <button class="dropdown-item" id="addImagesBtn" type="button">
+                    <span class="dropdown-icon">🖼️</span>
+                    <span>Add Images</span>
+                </button>
+                <button class="dropdown-item" id="addCodeBtn" type="button">
+                    <span class="dropdown-icon">⌨️</span>
+                    <span>Add Code</span>
+                </button>
+            </div>
+            <input id="filePicker" class="visually-hidden" type="file" multiple aria-hidden="true" tabindex="-1">
+            <input id="imagePicker" class="visually-hidden" type="file" accept="image/*" multiple aria-hidden="true" tabindex="-1">
+            <input id="codePicker" class="visually-hidden" type="file" accept=".c,.cpp,.css,.html,.java,.js,.json,.jsx,.md,.py,.sql,.ts,.tsx,.txt,.xml,.yaml,.yml,text/*" multiple aria-hidden="true" tabindex="-1">
             <p class="disclaimer">Nico OS may display inaccurate info. Verify system actions.</p>
         </div>
     </main>

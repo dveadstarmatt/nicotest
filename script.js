@@ -1,7 +1,16 @@
 const chatBox = document.getElementById("chatBox");
 const micBtn = document.getElementById("micBtn");
 const userInput = document.getElementById("userInput");
-const sendBtn = document.querySelector(".send-btn");
+const sendBtn = document.getElementById("sendBtn");
+const addBtn = document.getElementById("addBtn");
+const addFilesDropdown = document.getElementById("addFilesDropdown");
+const attachmentList = document.getElementById("attachmentList");
+const filePickers = {
+  files: document.getElementById("filePicker"),
+  images: document.getElementById("imagePicker"),
+  code: document.getElementById("codePicker"),
+};
+let selectedAttachments = [];
 const configuredApiUrl = document
   .querySelector('meta[name="nico-api-url"]')
   ?.content.trim();
@@ -143,6 +152,115 @@ function toggleSpeech() {
 
 if (micBtn) {
   micBtn.onclick = toggleSpeech;
+}
+
+document.addEventListener("click", (event) => {
+  if (!addFilesDropdown) return;
+  if (
+    !event.target.closest("#addBtn") &&
+    !event.target.closest("#addFilesDropdown")
+  ) {
+    addFilesDropdown.classList.remove("open");
+    addFilesDropdown.setAttribute("aria-hidden", "true");
+    addBtn?.setAttribute("aria-expanded", "false");
+  }
+});
+
+if (addBtn) {
+  addBtn.addEventListener("click", () => {
+    const isOpen = addFilesDropdown.classList.toggle("open");
+    addFilesDropdown.setAttribute("aria-hidden", String(!isOpen));
+    addBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+}
+
+function renderAttachments() {
+  if (!attachmentList) return;
+  attachmentList.innerHTML = "";
+  selectedAttachments.forEach((attachment, index) => {
+    const chip = document.createElement("div");
+    chip.className = "attachment-chip";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.title = attachment.file.name;
+    nameSpan.textContent = `${attachment.icon} ${attachment.file.name}`;
+    chip.appendChild(nameSpan);
+
+    const removeButton = document.createElement("button");
+    removeButton.className = "attachment-remove";
+    removeButton.type = "button";
+    removeButton.setAttribute("aria-label", `Remove ${attachment.file.name}`);
+    removeButton.textContent = "×";
+    removeButton.addEventListener("click", () => {
+      selectedAttachments.splice(index, 1);
+      renderAttachments();
+    });
+
+    chip.appendChild(removeButton);
+    attachmentList.appendChild(chip);
+  });
+}
+
+function selectFiles(kind) {
+  filePickers[kind]?.click();
+  addFilesDropdown?.classList.remove("open");
+  addFilesDropdown?.setAttribute("aria-hidden", "true");
+  addBtn?.setAttribute("aria-expanded", "false");
+}
+
+function addSelectedFiles(kind, event) {
+  const icon = kind === "images" ? "🖼️" : kind === "code" ? "⌘" : "📄";
+  Array.from(event.target.files || []).forEach((file) => {
+    if (
+      !selectedAttachments.some(
+        (attachment) =>
+          attachment.file.name === file.name &&
+          attachment.file.size === file.size,
+      )
+    ) {
+      selectedAttachments.push({ file, kind, icon });
+    }
+  });
+  event.target.value = "";
+  renderAttachments();
+}
+
+document
+  .getElementById("addFilesBtn")
+  ?.addEventListener("click", () => selectFiles("files"));
+document
+  .getElementById("addImagesBtn")
+  ?.addEventListener("click", () => selectFiles("images"));
+document
+  .getElementById("addCodeBtn")
+  ?.addEventListener("click", () => selectFiles("code"));
+Object.entries(filePickers).forEach(([kind, picker]) => {
+  picker?.addEventListener("change", (event) => addSelectedFiles(kind, event));
+});
+
+async function buildMessageWithAttachments(message) {
+  if (selectedAttachments.length === 0) return message;
+  const attachmentContext = [];
+  for (const attachment of selectedAttachments) {
+    if (attachment.kind === "images") {
+      attachmentContext.push(`[Attached image: ${attachment.file.name}]`);
+      continue;
+    }
+
+    try {
+      const text = await attachment.file.text();
+      const truncatedText =
+        text.length > 12000
+          ? `${text.slice(0, 12000)}\n[File truncated]`
+          : text;
+      attachmentContext.push(
+        `Attached file: ${attachment.file.name}\n\`\`\`\n${truncatedText}\n\`\`\``,
+      );
+    } catch {
+      attachmentContext.push(`[Attached file: ${attachment.file.name}]`);
+    }
+  }
+  return `${message}\n\n${attachmentContext.join("\n\n")}`.trim();
 }
 
 /* Event-driven TTS Queueing - Updated to speak introductory text before code blocks */
@@ -419,8 +537,9 @@ if (userInput) {
 }
 
 async function sendMessage() {
-  const message = userInput.value.trim();
-  if (!message) return;
+  const typedMessage = userInput.value.trim();
+  if (!typedMessage && selectedAttachments.length === 0) return;
+  const message = await buildMessageWithAttachments(typedMessage);
 
   if (
     message.startsWith("disable:") ||
@@ -436,6 +555,8 @@ async function sendMessage() {
   stopSpeech();
   appendMessage("user", message);
   userInput.value = "";
+  selectedAttachments = [];
+  renderAttachments();
 
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
@@ -549,7 +670,17 @@ function setMobileSidebar(open, e) {
   const isMobile = window.matchMedia("(max-width: 768px)").matches;
   sidebar.classList.toggle("mobile-open", isMobile && open);
   appLayout?.classList.toggle("sidebar-collapsed", !isMobile && !open);
+
+  if (isMobile) {
+    sidebar.style.transform = open ? "translateX(0)" : "translateX(-100%)";
+  } else {
+    sidebar.style.transform = open
+      ? "translateX(0)"
+      : "translateX(calc(-100% - 8px))";
+  }
+
   sidebarOverlay.classList.toggle("active", isMobile && open);
+  sidebarOverlay.setAttribute("aria-hidden", String(!(isMobile && open)));
   menuToggle?.setAttribute("aria-expanded", String(open));
 }
 
