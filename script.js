@@ -38,6 +38,52 @@ const authClient =
 let currentUser = null;
 let authUiInitialized = false;
 let conversationLoadToken = 0;
+const settingsStorageKey = "nico_settings";
+const defaultSettings = {
+  personality: "professional",
+  length: "short",
+  theme: "midnight",
+  mode: "dark",
+  font: "sans",
+  fontScale: 100,
+  model: "light",
+  memory: true,
+  memoryText: "",
+  context: true,
+  sound: false,
+  avatar: "✦",
+};
+let settings = { ...defaultSettings };
+
+try {
+  settings = {
+    ...defaultSettings,
+    ...JSON.parse(localStorage.getItem(settingsStorageKey) || "{}"),
+  };
+} catch {
+  settings = { ...defaultSettings };
+}
+
+function saveSettings() {
+  localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+}
+
+function applySettings() {
+  document.body.classList.toggle("theme-light", settings.mode === "light");
+  document.body.classList.toggle(
+    "theme-cyberpunk",
+    settings.theme === "cyberpunk",
+  );
+  document.body.classList.toggle("theme-sunset", settings.theme === "sunset");
+  document.body.classList.toggle("font-mono", settings.font === "mono");
+  document.documentElement.style.setProperty(
+    "--font-scale",
+    settings.fontScale / 100,
+  );
+  document.querySelectorAll(".avatar-tag").forEach((tag) => {
+    tag.textContent = settings.avatar;
+  });
+}
 
 async function apiFetch(url, options = {}) {
   if (!authClient) throw new Error("Supabase authentication is not configured");
@@ -474,8 +520,8 @@ function appendMessage(role, text, attachments = []) {
   const msgDiv = document.createElement("div");
   msgDiv.className = `message ${role}`;
 
-  if (role === "assistant") {
-    msgDiv.innerHTML = `<span class="avatar-tag">✦</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
+    if (role === "assistant") {
+      msgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
     attachCodeCopyButtons(msgDiv);
   } else {
     const content = document.createElement("div");
@@ -724,7 +770,7 @@ async function sendMessage() {
 
   const assistantMsgDiv = document.createElement("div");
   assistantMsgDiv.className = "message assistant";
-  assistantMsgDiv.innerHTML = `<span class="avatar-tag">✦</span><div class="content"></div>`;
+    assistantMsgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content"></div>`;
   const contentDiv = assistantMsgDiv.querySelector(".content");
 
   if (indicator) {
@@ -745,6 +791,7 @@ async function sendMessage() {
         message: message,
         conversation_id: currentConversationId,
         attachments: attachmentRequest.attachments,
+        settings,
       }),
     });
 
@@ -790,6 +837,7 @@ async function sendMessage() {
     }
 
     attachCodeCopyButtons(assistantMsgDiv);
+    if (settings.sound) playCompletionChime();
     loadRecentConversations();
   } catch (error) {
     if (indicator) indicator.style.display = "none";
@@ -870,7 +918,7 @@ function handleCommand(commandText) {
 
   const assistantMsgDiv = document.createElement("div");
   assistantMsgDiv.className = "message assistant";
-  assistantMsgDiv.innerHTML = `<span class="avatar-tag">✦</span><div class="content"></div>`;
+  assistantMsgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content"></div>`;
   const contentDiv = assistantMsgDiv.querySelector(".content");
 
   if (
@@ -920,6 +968,90 @@ function exportChat() {
   a.download = `chat-${currentConversationId}.md`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadFile(filename, content, type) {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportChatJson() {
+  const messages = Array.from(chatBox.querySelectorAll(".message")).map((msg) => ({
+    role: msg.classList.contains("user") ? "user" : "assistant",
+    content: msg.querySelector(".content")?.innerText || "",
+  }));
+  if (!messages.length) return alert("No messages to export.");
+  downloadFile(`chat-${currentConversationId}.json`, JSON.stringify(messages, null, 2), "application/json");
+}
+
+function playCompletionChime() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return;
+  const context = new AudioContextClass();
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.frequency.value = 660;
+  gain.gain.setValueAtTime(0.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.04, context.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.18);
+  oscillator.connect(gain).connect(context.destination);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.2);
+}
+
+function initializeSettingsPanel() {
+  const panel = document.getElementById("settingsPanel");
+  const button = document.getElementById("settingsBtn");
+  const closeButton = document.getElementById("closeSettingsBtn");
+  const controls = {
+    personality: document.getElementById("personalitySetting"),
+    length: document.getElementById("lengthSetting"),
+    theme: document.getElementById("themeSetting"),
+    mode: document.getElementById("modeSetting"),
+    font: document.getElementById("fontSetting"),
+    fontScale: document.getElementById("fontSizeSetting"),
+    model: document.getElementById("modelSetting"),
+    memory: document.getElementById("memorySetting"),
+    memoryText: document.getElementById("memoryInput"),
+    context: document.getElementById("contextSetting"),
+    sound: document.getElementById("soundSetting"),
+    avatar: document.getElementById("avatarSetting"),
+  };
+
+  Object.entries(controls).forEach(([key, control]) => {
+    control.value = settings[key];
+    if (control.type === "checkbox") control.checked = settings[key];
+    control.addEventListener("input", () => {
+      settings[key] = control.type === "checkbox" ? control.checked : control.value;
+      if (key === "fontScale") settings.fontScale = Number(control.value);
+      saveSettings();
+      applySettings();
+    });
+  });
+
+  const setOpen = (open) => {
+    panel.classList.toggle("open", open);
+    panel.setAttribute("aria-hidden", String(!open));
+    button.setAttribute("aria-expanded", String(open));
+  };
+  button.addEventListener("click", () => setOpen(!panel.classList.contains("open")));
+  closeButton.addEventListener("click", () => setOpen(false));
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest("#settingsPanel") && !event.target.closest("#settingsBtn")) setOpen(false);
+  });
+  document.getElementById("exportMarkdownBtn").addEventListener("click", exportChat);
+  document.getElementById("exportJsonBtn").addEventListener("click", exportChatJson);
+  document.getElementById("clearContextBtn").addEventListener("click", () => {
+    settings.context = false;
+    controls.context.checked = false;
+    saveSettings();
+    clearChatBox();
+  });
+  applySettings();
 }
 
 function updateAuthUi(user) {
@@ -1012,5 +1144,6 @@ document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
 
 // Initial setup
 ensureTypingIndicator();
+initializeSettingsPanel();
 initializeAuth();
 focusInput();

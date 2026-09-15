@@ -65,6 +65,7 @@ class ChatRequest(BaseModel):
   message: str
   conversation_id: str
   attachments: list[dict] = []
+  settings: dict = {}
 
 
 class RenameRequest(BaseModel):
@@ -298,7 +299,7 @@ async def chat_stream(
       .execute()
   )
 
-  past_messages = history_response.data
+  past_messages = history_response.data if request.settings.get("context", True) else []
 
   supabase_client.table("messages").insert({
       "role": "user",
@@ -315,6 +316,14 @@ async def chat_stream(
       f"{CREATOR_NAME}. The creator's hobbies are: {CREATOR_HOBBIES}. "
       "When asked who created or invented you, identify the creator as "
       f"{CREATOR_NAME}. Do not invent additional personal details."
+  )
+  personality = request.settings.get("personality", "professional")
+  response_length = request.settings.get("length", "short")
+  memory = request.settings.get("memoryText", "") if request.settings.get("memory", True) else ""
+  system_prompt += (
+    f" Use a {personality} conversational tone."
+    f" Prefer {response_length} responses."
+    + (f" User preferences to remember: {memory}." if memory else "")
   )
 
   messages_payload = [{"role": "system", "content": system_prompt}]
@@ -351,7 +360,11 @@ async def chat_stream(
         yield full_reply
         models_to_try = []
       else:
-        models_to_try = ["openai/gpt-oss-120b"]
+        models_to_try = [
+          "openai/gpt-oss-20b"
+          if request.settings.get("model") == "light"
+          else "openai/gpt-oss-120b"
+        ]
       last_error = None
 
       for model in models_to_try:
