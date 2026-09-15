@@ -27,11 +27,11 @@ body {
     height: 100vh;
     overflow: hidden;
     position: relative;
-    font-size: calc(16px * var(--font-scale));
+    font-size: 1rem;
 }
 
-body.theme-cyberpunk { --accent: #00f5d4; --accent-glow: rgba(0, 245, 212, 0.16); }
-body.theme-sunset { --accent: #ff9f68; --accent-glow: rgba(255, 159, 104, 0.16); }
+body.theme-cyberpunk { --accent: #00f5d4; --accent-glow: rgba(0, 245, 212, 0.22); }
+body.theme-sunset { --accent: #ff9f68; --accent-glow: rgba(255, 159, 104, 0.22); }
 body.theme-light { --bg-main: #eef2f7; --bg-accent: #ffffff; --text-primary: #1c2430; --text-muted: rgba(28, 36, 48, 0.58); --glass-bg: rgba(255, 255, 255, 0.7); --glass-bg-hover: rgba(255, 255, 255, 0.92); --glass-bg-active: rgba(20, 30, 45, 0.12); }
 body.font-mono, body.font-mono button, body.font-mono input, body.font-mono select, body.font-mono textarea { font-family: "Courier New", monospace; }
 
@@ -308,6 +308,8 @@ body::before {
 }
 
 .settings-btn:hover, .settings-btn[aria-expanded="true"] { background: var(--accent); color: #071016; }
+.model-badge { color: var(--accent); }
+.export-btn, .settings-btn { border-color: color-mix(in srgb, var(--accent) 38%, transparent); }
 
 .settings-panel {
     position: absolute;
@@ -342,6 +344,8 @@ body::before {
 .settings-actions button { cursor: pointer; }
 .settings-actions button:hover { background: var(--accent); color: #071016; }
 .settings-actions button:last-child { grid-column: 1 / -1; }
+.mascot-preview { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; padding: 9px 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent); border-radius: 10px; color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-size: 1.15rem; }
+.mascot-preview span { color: var(--text-muted); font-size: 0.7rem; }
 
 button.mobile-menu-btn,
 button.export-btn {
@@ -408,7 +412,7 @@ button.export-btn:hover {
     font-size: 3.5rem;
     font-weight: 500;
     margin-bottom: 8px;
-    background: linear-gradient(to right, #4b90ff, #ff5546, #4b90ff);
+    background: linear-gradient(to right, var(--accent), #ff7ab6, var(--accent));
     background-size: 200% auto;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -689,6 +693,7 @@ button.export-btn:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     transition: all 0.3s ease;
     min-height: 56px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent), 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .input-pill:focus-within {
@@ -866,6 +871,8 @@ button.export-btn:hover {
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+    box-shadow: 0 0 14px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .send-btn:hover {

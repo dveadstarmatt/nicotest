@@ -80,6 +80,11 @@ function applySettings() {
     "--font-scale",
     settings.fontScale / 100,
   );
+  document.documentElement.style.fontSize = `${settings.fontScale}%`;
+  const mascotLogo = document.getElementById("mascotLogo");
+  const mascotPreview = document.getElementById("mascotPreview");
+  if (mascotLogo) mascotLogo.textContent = settings.avatar;
+  if (mascotPreview) mascotPreview.firstChild.textContent = `${settings.avatar} `;
   document.querySelectorAll(".avatar-tag").forEach((tag) => {
     tag.textContent = settings.avatar;
   });
@@ -520,8 +525,8 @@ function appendMessage(role, text, attachments = []) {
   const msgDiv = document.createElement("div");
   msgDiv.className = `message ${role}`;
 
-    if (role === "assistant") {
-      msgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
+  if (role === "assistant") {
+    msgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
     attachCodeCopyButtons(msgDiv);
   } else {
     const content = document.createElement("div");
@@ -770,7 +775,7 @@ async function sendMessage() {
 
   const assistantMsgDiv = document.createElement("div");
   assistantMsgDiv.className = "message assistant";
-    assistantMsgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content"></div>`;
+  assistantMsgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content"></div>`;
   const contentDiv = assistantMsgDiv.querySelector(".content");
 
   if (indicator) {
@@ -980,12 +985,18 @@ function downloadFile(filename, content, type) {
 }
 
 function exportChatJson() {
-  const messages = Array.from(chatBox.querySelectorAll(".message")).map((msg) => ({
-    role: msg.classList.contains("user") ? "user" : "assistant",
-    content: msg.querySelector(".content")?.innerText || "",
-  }));
+  const messages = Array.from(chatBox.querySelectorAll(".message")).map(
+    (msg) => ({
+      role: msg.classList.contains("user") ? "user" : "assistant",
+      content: msg.querySelector(".content")?.innerText || "",
+    }),
+  );
   if (!messages.length) return alert("No messages to export.");
-  downloadFile(`chat-${currentConversationId}.json`, JSON.stringify(messages, null, 2), "application/json");
+  downloadFile(
+    `chat-${currentConversationId}.json`,
+    JSON.stringify(messages, null, 2),
+    "application/json",
+  );
 }
 
 function playCompletionChime() {
@@ -1026,7 +1037,8 @@ function initializeSettingsPanel() {
     control.value = settings[key];
     if (control.type === "checkbox") control.checked = settings[key];
     control.addEventListener("input", () => {
-      settings[key] = control.type === "checkbox" ? control.checked : control.value;
+      settings[key] =
+        control.type === "checkbox" ? control.checked : control.value;
       if (key === "fontScale") settings.fontScale = Number(control.value);
       saveSettings();
       applySettings();
@@ -1038,13 +1050,23 @@ function initializeSettingsPanel() {
     panel.setAttribute("aria-hidden", String(!open));
     button.setAttribute("aria-expanded", String(open));
   };
-  button.addEventListener("click", () => setOpen(!panel.classList.contains("open")));
+  button.addEventListener("click", () =>
+    setOpen(!panel.classList.contains("open")),
+  );
   closeButton.addEventListener("click", () => setOpen(false));
   document.addEventListener("click", (event) => {
-    if (!event.target.closest("#settingsPanel") && !event.target.closest("#settingsBtn")) setOpen(false);
+    if (
+      !event.target.closest("#settingsPanel") &&
+      !event.target.closest("#settingsBtn")
+    )
+      setOpen(false);
   });
-  document.getElementById("exportMarkdownBtn").addEventListener("click", exportChat);
-  document.getElementById("exportJsonBtn").addEventListener("click", exportChatJson);
+  document
+    .getElementById("exportMarkdownBtn")
+    .addEventListener("click", exportChat);
+  document
+    .getElementById("exportJsonBtn")
+    .addEventListener("click", exportChatJson);
   document.getElementById("clearContextBtn").addEventListener("click", () => {
     settings.context = false;
     controls.context.checked = false;
