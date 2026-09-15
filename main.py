@@ -19,9 +19,14 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_VISION_MODEL = os.getenv(
-  "GROQ_VISION_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"
-)
+GROQ_VISION_MODELS = [
+  model.strip()
+  for model in os.getenv(
+    "GROQ_VISION_MODELS",
+    "meta-llama/llama-4-scout-17b-16e-instruct,llama-3.2-11b-vision-preview",
+  ).split(",")
+  if model.strip()
+]
 CREATOR_NAME = os.getenv("CREATOR_NAME", "Matt Andrei Crisostomo")
 CREATOR_HOBBIES = os.getenv("CREATOR_HOBBIES", "Not provided")
 
@@ -293,27 +298,42 @@ async def chat_stream(
       yield full_reply
     else:
       full_reply = ""
-      try:
-        response_stream = await groq_client.chat.completions.create(
-            messages=messages_payload,
-            model=(
-              GROQ_VISION_MODEL
-              if any(
-                attachment.get("mime_type", "").startswith("image/")
-                for attachment in request.attachments
-              )
-              else "openai/gpt-oss-120b"
-            ),
-            stream=True,
-        )
+      image_request = any(
+        attachment.get("mime_type", "").startswith("image/")
+        for attachment in request.attachments
+      )
+      models_to_try = GROQ_VISION_MODELS if image_request else ["openai/gpt-oss-120b"]
+      last_error = None
 
-        async for chunk in response_stream:
-          content = chunk.choices[0].delta.content or ""
-          if content:
-            full_reply += content
-            yield content
-      except Exception as error:
-        full_reply = "Nico could not analyze that request right now. " f"Backend error: {error}"
+      for model in models_to_try:
+        try:
+          response_stream = await groq_client.chat.completions.create(
+              messages=messages_payload,
+              model=model,
+              stream=True,
+          )
+
+          async for chunk in response_stream:
+            content = chunk.choices[0].delta.content or ""
+            if content:
+              full_reply += content
+              yield content
+          break
+        except Exception as error:
+          last_error = error
+          error_text = str(error).lower()
+          if not image_request or "model_not_found" not in error_text:
+            break
+
+      if not full_reply and last_error:
+        if image_request and "model_not_found" in str(last_error).lower():
+          full_reply = (
+            "Nico could not analyze this image because the Groq account has no "
+            "access to an enabled vision model. Set GROQ_VISION_MODELS in the "
+            "Render backend environment to a vision model available to your key."
+          )
+        else:
+          full_reply = f"Nico could not analyze that request right now. Backend error: {last_error}"
         yield full_reply
 
     if full_reply.strip():
