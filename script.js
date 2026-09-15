@@ -624,11 +624,12 @@ async function loadMessages() {
   const loadToken = ++conversationLoadToken;
   const conversationId = currentConversationId;
   try {
-    const res = await apiFetch(
-      `${apiBaseUrl}/messages/${conversationId}`,
-    );
+    const res = await apiFetch(`${apiBaseUrl}/messages/${conversationId}`);
     const data = await res.json();
-    if (loadToken !== conversationLoadToken || conversationId !== currentConversationId) {
+    if (
+      loadToken !== conversationLoadToken ||
+      conversationId !== currentConversationId
+    ) {
       return;
     }
     clearChatBox();
