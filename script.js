@@ -51,6 +51,61 @@ function conversationStorageKey() {
   return currentUser ? `active_chat_id:${currentUser.id}` : "active_chat_id";
 }
 
+function attachmentStorageKey(conversationId = currentConversationId) {
+  return `conversation_attachments:${conversationId}`;
+}
+
+async function createStoredImagePreview(dataUrl) {
+  return new Promise((resolve) => {
+    const image = new Image();
+    image.onload = () => {
+      const scale = Math.min(1, 640 / image.width, 640 / image.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(image.width * scale));
+      canvas.height = Math.max(1, Math.round(image.height * scale));
+      canvas
+        .getContext("2d")
+        .drawImage(image, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.78));
+    };
+    image.onerror = () => resolve(dataUrl);
+    image.src = dataUrl;
+  });
+}
+
+async function saveConversationAttachments(attachments) {
+  const imageAttachments = await Promise.all(
+    attachments
+      .filter((attachment) => attachment.mime_type.startsWith("image/"))
+      .map(async (attachment) => ({
+        name: attachment.name,
+        mime_type: attachment.mime_type,
+        data_url: await createStoredImagePreview(attachment.data_url),
+      })),
+  );
+
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem(attachmentStorageKey()) || "[]",
+    );
+    stored.push(imageAttachments);
+    localStorage.setItem(
+      attachmentStorageKey(),
+      JSON.stringify(stored.slice(-50)),
+    );
+  } catch (error) {
+    console.warn("Could not persist image preview:", error);
+  }
+}
+
+function loadConversationAttachments() {
+  try {
+    return JSON.parse(localStorage.getItem(attachmentStorageKey()) || "[]");
+  } catch {
+    return [];
+  }
+}
+
 function createConversationId() {
   if (crypto.randomUUID) return crypto.randomUUID();
 
@@ -566,7 +621,15 @@ async function loadMessages() {
     const data = await res.json();
     clearChatBox();
     if (Array.isArray(data)) {
-      data.forEach((msg) => appendMessage(msg.role, msg.content));
+      const storedAttachments = loadConversationAttachments();
+      let userMessageIndex = 0;
+      data.forEach((msg) => {
+        const attachments =
+          msg.role === "user"
+            ? storedAttachments[userMessageIndex++] || []
+            : [];
+        appendMessage(msg.role, msg.content, attachments);
+      });
     }
   } catch (err) {
     console.error("Failed to load messages:", err);
@@ -624,6 +687,7 @@ async function sendMessage() {
 
   stopSpeech();
   appendMessage("user", displayMessage, attachmentRequest.attachments);
+  await saveConversationAttachments(attachmentRequest.attachments);
   userInput.value = "";
   selectedAttachments = [];
   renderAttachments();
