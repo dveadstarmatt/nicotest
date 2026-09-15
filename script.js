@@ -181,6 +181,14 @@ function renderAttachments() {
     const chip = document.createElement("div");
     chip.className = "attachment-chip";
 
+    if (attachment.kind === "images" && attachment.previewUrl) {
+      const preview = document.createElement("img");
+      preview.className = "attachment-thumb";
+      preview.src = attachment.previewUrl;
+      preview.alt = "";
+      chip.appendChild(preview);
+    }
+
     const nameSpan = document.createElement("span");
     nameSpan.title = attachment.file.name;
     nameSpan.textContent = `${attachment.icon} ${attachment.file.name}`;
@@ -218,7 +226,12 @@ function addSelectedFiles(kind, event) {
           attachment.file.size === file.size,
       )
     ) {
-      selectedAttachments.push({ file, kind, icon });
+      selectedAttachments.push({
+        file,
+        kind,
+        icon,
+        previewUrl: kind === "images" ? URL.createObjectURL(file) : null,
+      });
     }
   });
   event.target.value = "";
@@ -240,7 +253,7 @@ Object.entries(filePickers).forEach(([kind, picker]) => {
 
 async function buildMessageWithAttachments(message) {
   if (selectedAttachments.length === 0) {
-    return { message, attachments: [] };
+    return { message, displayMessage: message, attachments: [] };
   }
   const attachmentContext = [];
   const attachments = [];
@@ -252,7 +265,6 @@ async function buildMessageWithAttachments(message) {
         mime_type: attachment.file.type || "image/*",
         data_url: dataUrl,
       });
-      attachmentContext.push(`[Attached image: ${attachment.file.name}]`);
       continue;
     }
 
@@ -284,6 +296,7 @@ async function buildMessageWithAttachments(message) {
   }
   return {
     message: `${message}\n\n${attachmentContext.join("\n\n")}`.trim(),
+    displayMessage: message,
     attachments,
   };
 }
@@ -396,7 +409,7 @@ function attachCodeCopyButtons(messageDiv) {
   });
 }
 
-function appendMessage(role, text) {
+function appendMessage(role, text, attachments = []) {
   // Update state for non-empty chats
   appLayout?.classList.remove("new-chat-mode");
   appLayout?.classList.add("active-chat-mode");
@@ -408,7 +421,19 @@ function appendMessage(role, text) {
     msgDiv.innerHTML = `<span class="avatar-tag">✦</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
     attachCodeCopyButtons(msgDiv);
   } else {
-    msgDiv.innerHTML = `<div class="content">${text}</div>`;
+    const content = document.createElement("div");
+    content.className = "content";
+    content.textContent = text;
+    attachments
+      .filter((attachment) => attachment.mime_type.startsWith("image/"))
+      .forEach((attachment) => {
+        const image = document.createElement("img");
+        image.className = "message-image-preview";
+        image.src = attachment.data_url;
+        image.alt = attachment.name || "Attached image";
+        content.appendChild(image);
+      });
+    msgDiv.appendChild(content);
   }
 
   const indicator = document.getElementById("typingIndicator");
@@ -584,20 +609,21 @@ async function sendMessage() {
   if (!typedMessage && selectedAttachments.length === 0) return;
   const attachmentRequest = await buildMessageWithAttachments(typedMessage);
   const message = attachmentRequest.message;
+  const displayMessage = attachmentRequest.displayMessage;
 
   if (
     message.startsWith("disable:") ||
     message.startsWith("/") ||
     message.startsWith("enable:")
   ) {
-    appendMessage("user", message);
+    appendMessage("user", displayMessage, attachmentRequest.attachments);
     userInput.value = "";
     handleCommand(message);
     return;
   }
 
   stopSpeech();
-  appendMessage("user", message);
+  appendMessage("user", displayMessage, attachmentRequest.attachments);
   userInput.value = "";
   selectedAttachments = [];
   renderAttachments();
@@ -642,6 +668,13 @@ async function sendMessage() {
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        errorText || `Request failed with status ${response.status}`,
+      );
+    }
+
     if (indicator) indicator.style.display = "none";
 
     const reader = response.body.getReader();
@@ -683,7 +716,7 @@ async function sendMessage() {
     if (error.name === "AbortError") {
       contentDiv.innerHTML += " <i>[Generation stopped]</i>";
     } else {
-      contentDiv.innerText = "Error: Could not connect to Nico backend.";
+      contentDiv.innerText = `Error: ${error.message || "Could not connect to Nico backend."}`;
     }
   } finally {
     currentAbortController = null;
