@@ -8,6 +8,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from groq import AsyncGroq
+from google import genai
+from google.genai import types
 from pydantic import BaseModel
 from pypdf import PdfReader
 from docx import Document
@@ -19,6 +21,8 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-2.5-flash")
 configured_vision_models = [
   model.strip()
   for model in os.getenv("GROQ_VISION_MODELS", "").split(",")
@@ -49,6 +53,7 @@ app.add_middleware(
 
 supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
 
 
 @app.get("/health")
@@ -160,6 +165,36 @@ def build_user_content(message, attachments):
   if not image_parts:
     return full_text
   return [{"type": "text", "text": full_text or "Describe this image."}, *image_parts]
+
+
+async def generate_gemini_image_response(message, attachments, system_prompt):
+  if not gemini_client:
+    return (
+      "Image analysis is not configured yet. Add GEMINI_API_KEY to the "
+      "Render backend environment and redeploy."
+    )
+
+  parts = [types.Part.from_text(text=message or "Describe this image.")]
+  for attachment in attachments:
+    if not attachment.get("mime_type", "").startswith("image/"):
+      continue
+    data_url = attachment.get("data_url", "")
+    if "," not in data_url:
+      continue
+    parts.append(
+      types.Part.from_bytes(
+        data=base64.b64decode(data_url.split(",", 1)[1]),
+        mime_type=attachment.get("mime_type", "image/jpeg"),
+      )
+    )
+
+  response = await asyncio.to_thread(
+    gemini_client.models.generate_content,
+    model=GEMINI_VISION_MODEL,
+    contents=parts,
+    config=types.GenerateContentConfig(system_instruction=system_prompt),
+  )
+  return response.text or "Gemini returned an empty image analysis."
 
 
 @app.get("/conversations")
@@ -306,7 +341,17 @@ async def chat_stream(
         attachment.get("mime_type", "").startswith("image/")
         for attachment in request.attachments
       )
-      models_to_try = GROQ_VISION_MODELS if image_request else ["openai/gpt-oss-120b"]
+      if image_request:
+        try:
+          full_reply = await generate_gemini_image_response(
+            request.message, request.attachments, system_prompt
+          )
+        except Exception as error:
+          full_reply = f"Nico could not analyze that image. Gemini error: {error}"
+        yield full_reply
+        models_to_try = []
+      else:
+        models_to_try = ["openai/gpt-oss-120b"]
       last_error = None
 
       for model in models_to_try:

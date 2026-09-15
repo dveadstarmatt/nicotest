@@ -12,6 +12,10 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_VISION_MODEL
+        value: gemini-2.5-flash
 
   # Static frontend. Do not use Python/gunicorn for this URL.
   - type: web

@@ -3,6 +3,7 @@ uvicorn[standard]
 gunicorn
 python-dotenv
 groq
+google-genai
 supabase
 pydantic
 pypdf
