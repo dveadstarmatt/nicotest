@@ -15,7 +15,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_VISION_MODEL
-        value: gemini-3.6-flash
+        value: gemini-3.1-flash-lite
 
   # Static frontend. Do not use Python/gunicorn for this URL.
   - type: web
