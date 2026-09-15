@@ -19,6 +19,9 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_VISION_MODEL = os.getenv(
+  "GROQ_VISION_MODEL", "meta-llama/llama-4-maverick-17b-128e-instruct"
+)
 CREATOR_NAME = os.getenv("CREATOR_NAME", "Matt Andrei Crisostomo")
 CREATOR_HOBBIES = os.getenv("CREATOR_HOBBIES", "Not provided")
 
@@ -294,7 +297,7 @@ async def chat_stream(
         response_stream = await groq_client.chat.completions.create(
             messages=messages_payload,
             model=(
-              "meta-llama/llama-4-scout-17b-16e-instruct"
+              GROQ_VISION_MODEL
               if any(
                 attachment.get("mime_type", "").startswith("image/")
                 for attachment in request.attachments
