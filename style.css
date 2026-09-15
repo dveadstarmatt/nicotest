@@ -515,6 +515,50 @@ button.export-btn:hover {
     line-height: 1.8;
 }
 
+.message table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 10px;
+    overflow: hidden;
+    table-layout: fixed;
+}
+
+.message thead th,
+.message tbody td {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+    color: rgba(255, 255, 255, 0.92);
+}
+
+.message thead th {
+    background: rgba(255, 255, 255, 0.05);
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.message tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.message table th:first-child,
+.message table td:first-child {
+    width: 32%;
+}
+
+.message table th:last-child,
+.message table td:last-child {
+    width: 30%;
+}
+
+.message table td code {
+    white-space: normal;
+}
+
 .message li {
     margin: 0.4em 0;
     line-height: 1.6;
