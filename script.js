@@ -239,28 +239,71 @@ Object.entries(filePickers).forEach(([kind, picker]) => {
 });
 
 async function buildMessageWithAttachments(message) {
-  if (selectedAttachments.length === 0) return message;
+  if (selectedAttachments.length === 0) {
+    return { message, attachments: [] };
+  }
   const attachmentContext = [];
+  const attachments = [];
   for (const attachment of selectedAttachments) {
     if (attachment.kind === "images") {
+      const dataUrl = await readFileAsDataUrl(attachment.file);
+      attachments.push({
+        name: attachment.file.name,
+        mime_type: attachment.file.type || "image/*",
+        data_url: dataUrl,
+      });
       attachmentContext.push(`[Attached image: ${attachment.file.name}]`);
       continue;
     }
 
-    try {
-      const text = await attachment.file.text();
-      const truncatedText =
-        text.length > 12000
-          ? `${text.slice(0, 12000)}\n[File truncated]`
-          : text;
-      attachmentContext.push(
-        `Attached file: ${attachment.file.name}\n\`\`\`\n${truncatedText}\n\`\`\``,
-      );
-    } catch {
-      attachmentContext.push(`[Attached file: ${attachment.file.name}]`);
+    if (isTextAttachment(attachment.file)) {
+      try {
+        const text = await attachment.file.text();
+        const truncatedText =
+          text.length > 12000
+            ? `${text.slice(0, 12000)}\n[File truncated]`
+            : text;
+        attachmentContext.push(
+          `Attached file: ${attachment.file.name}\n\`\`\`\n${truncatedText}\n\`\`\``,
+        );
+      } catch {
+        attachmentContext.push(
+          `[Could not read file: ${attachment.file.name}]`,
+        );
+      }
+      continue;
     }
+
+    const dataUrl = await readFileAsDataUrl(attachment.file);
+    attachments.push({
+      name: attachment.file.name,
+      mime_type: attachment.file.type || "application/octet-stream",
+      data_url: dataUrl,
+    });
+    attachmentContext.push(`[Attached binary file: ${attachment.file.name}]`);
   }
-  return `${message}\n\n${attachmentContext.join("\n\n")}`.trim();
+  return {
+    message: `${message}\n\n${attachmentContext.join("\n\n")}`.trim(),
+    attachments,
+  };
+}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
+function isTextAttachment(file) {
+  return (
+    file.type.startsWith("text/") ||
+    /\.(c|cpp|css|html?|java|js|json|jsx|md|py|sql|ts|tsx|txt|xml|ya?ml)$/i.test(
+      file.name,
+    )
+  );
 }
 
 /* Event-driven TTS Queueing - Updated to speak introductory text before code blocks */
@@ -539,7 +582,8 @@ if (userInput) {
 async function sendMessage() {
   const typedMessage = userInput.value.trim();
   if (!typedMessage && selectedAttachments.length === 0) return;
-  const message = await buildMessageWithAttachments(typedMessage);
+  const attachmentRequest = await buildMessageWithAttachments(typedMessage);
+  const message = attachmentRequest.message;
 
   if (
     message.startsWith("disable:") ||
@@ -594,6 +638,7 @@ async function sendMessage() {
       body: JSON.stringify({
         message: message,
         conversation_id: currentConversationId,
+        attachments: attachmentRequest.attachments,
       }),
     });
 

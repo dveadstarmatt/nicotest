@@ -1,4 +1,6 @@
 import asyncio
+import base64
+import io
 import os
 import re
 from dotenv import load_dotenv
@@ -7,6 +9,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from groq import AsyncGroq
 from pydantic import BaseModel
+from pypdf import PdfReader
+from docx import Document
 from supabase import Client, create_client
 
 load_dotenv()
@@ -43,6 +47,7 @@ def health_check():
 class ChatRequest(BaseModel):
   message: str
   conversation_id: str
+  attachments: list[dict] = []
 
 
 class RenameRequest(BaseModel):
@@ -100,6 +105,49 @@ def account_name(user):
       or (user.email or "").split("@")[0]
       or "User"
   )
+
+
+def attachment_text(attachment):
+  data_url = attachment.get("data_url", "")
+  if "," not in data_url:
+    return f"[Could not read {attachment.get('name', 'attachment')}]"
+
+  try:
+    raw_data = base64.b64decode(data_url.split(",", 1)[1])
+    mime_type = attachment.get("mime_type", "")
+    name = attachment.get("name", "attachment")
+    if mime_type == "application/pdf" or name.lower().endswith(".pdf"):
+      reader = PdfReader(io.BytesIO(raw_data))
+      text = "\n".join(page.extract_text() or "" for page in reader.pages)
+      return f"Attached file: {name}\n{text[:12000]}"
+    if name.lower().endswith(".docx"):
+      document = Document(io.BytesIO(raw_data))
+      text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+      return f"Attached file: {name}\n{text[:12000]}"
+    return f"[Binary file not text-readable: {name}]"
+  except Exception:
+    return f"[Could not read {attachment.get('name', 'attachment')}]"
+
+
+def build_user_content(message, attachments):
+  image_parts = [
+      {
+          "type": "image_url",
+          "image_url": {"url": attachment["data_url"]},
+      }
+      for attachment in attachments
+      if attachment.get("mime_type", "").startswith("image/")
+      and attachment.get("data_url")
+  ]
+  file_context = [
+      attachment_text(attachment)
+      for attachment in attachments
+      if not attachment.get("mime_type", "").startswith("image/")
+  ]
+  full_text = "\n\n".join([message, *file_context]).strip()
+  if not image_parts:
+    return full_text
+  return [{"type": "text", "text": full_text or "Describe this image."}, *image_parts]
 
 
 @app.get("/conversations")
@@ -225,7 +273,8 @@ async def chat_stream(
   messages_payload = [{"role": "system", "content": system_prompt}]
   for msg in past_messages:
     messages_payload.append({"role": msg["role"], "content": msg["content"]})
-  messages_payload.append({"role": "user", "content": request.message})
+  user_content = build_user_content(request.message, request.attachments)
+  messages_payload.append({"role": "user", "content": user_content})
   fixed_creator_reply = creator_reply(request.message)
   user_name = account_name(user)
   asks_for_name = bool(
@@ -242,7 +291,14 @@ async def chat_stream(
     else:
       response_stream = await groq_client.chat.completions.create(
           messages=messages_payload,
-          model="openai/gpt-oss-120b",
+          model=(
+            "meta-llama/llama-4-scout-17b-16e-instruct"
+            if any(
+              attachment.get("mime_type", "").startswith("image/")
+              for attachment in request.attachments
+            )
+            else "openai/gpt-oss-120b"
+          ),
           stream=True,
       )
 
