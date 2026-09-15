@@ -289,25 +289,29 @@ async def chat_stream(
       full_reply = f"Your name is {user_name}."
       yield full_reply
     else:
-      response_stream = await groq_client.chat.completions.create(
-          messages=messages_payload,
-          model=(
-            "meta-llama/llama-4-scout-17b-16e-instruct"
-            if any(
-              attachment.get("mime_type", "").startswith("image/")
-              for attachment in request.attachments
-            )
-            else "openai/gpt-oss-120b"
-          ),
-          stream=True,
-      )
-
       full_reply = ""
-      async for chunk in response_stream:
-        content = chunk.choices[0].delta.content or ""
-        if content:
-          full_reply += content
-          yield content
+      try:
+        response_stream = await groq_client.chat.completions.create(
+            messages=messages_payload,
+            model=(
+              "meta-llama/llama-4-scout-17b-16e-instruct"
+              if any(
+                attachment.get("mime_type", "").startswith("image/")
+                for attachment in request.attachments
+              )
+              else "openai/gpt-oss-120b"
+            ),
+            stream=True,
+        )
+
+        async for chunk in response_stream:
+          content = chunk.choices[0].delta.content or ""
+          if content:
+            full_reply += content
+            yield content
+      except Exception as error:
+        full_reply = "Nico could not analyze that request right now. " f"Backend error: {error}"
+        yield full_reply
 
     if full_reply.strip():
       supabase_client.table("messages").insert({

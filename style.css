@@ -746,6 +746,14 @@ button.export-btn:hover {
     display: flex;
 }
 
+.app-layout.conversation-loading .chat-box::before {
+    content: "Loading conversation...";
+    align-self: center;
+    margin-top: 20vh;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
 .app-layout.new-chat-mode .input-wrapper {
     position: absolute;
     top: 50%;

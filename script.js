@@ -36,6 +36,8 @@ const authClient =
       })
     : null;
 let currentUser = null;
+let authUiInitialized = false;
+let conversationLoadToken = 0;
 
 async function apiFetch(url, options = {}) {
   if (!authClient) throw new Error("Supabase authentication is not configured");
@@ -525,9 +527,13 @@ async function switchConversation(id) {
   stopSpeech();
   currentConversationId = id;
   localStorage.setItem("active_chat_id", currentConversationId);
+  document.querySelectorAll(".recent-item").forEach((item) => {
+    item.classList.toggle("active", item.dataset.conversationId === id);
+  });
   clearChatBox();
+  appLayout?.classList.add("conversation-loading");
   await loadMessages();
-  loadRecentConversations();
+  appLayout?.classList.remove("conversation-loading");
   focusInput();
 }
 
@@ -578,6 +584,7 @@ async function loadRecentConversations() {
     conversations.forEach((conv) => {
       const item = document.createElement("div");
       item.className = "recent-item";
+      item.dataset.conversationId = conv.id;
       if (conv.id === currentConversationId) item.classList.add("active");
 
       const titleSpan = document.createElement("span");
@@ -614,11 +621,16 @@ async function loadRecentConversations() {
 }
 
 async function loadMessages() {
+  const loadToken = ++conversationLoadToken;
+  const conversationId = currentConversationId;
   try {
     const res = await apiFetch(
-      `${apiBaseUrl}/messages/${currentConversationId}`,
+      `${apiBaseUrl}/messages/${conversationId}`,
     );
     const data = await res.json();
+    if (loadToken !== conversationLoadToken || conversationId !== currentConversationId) {
+      return;
+    }
     clearChatBox();
     if (Array.isArray(data)) {
       const storedAttachments = loadConversationAttachments();
@@ -632,7 +644,10 @@ async function loadMessages() {
       });
     }
   } catch (err) {
-    console.error("Failed to load messages:", err);
+    if (loadToken === conversationLoadToken) {
+      console.error("Failed to load messages:", err);
+      appLayout?.classList.remove("conversation-loading");
+    }
   }
 }
 
@@ -916,6 +931,7 @@ function updateAuthUi(user) {
 
   currentUser = user;
   if (!user) {
+    authUiInitialized = false;
     userName.textContent = "Not signed in";
     if (welcomeName) welcomeName.textContent = "User";
     userAvatar.textContent = "?";
@@ -938,12 +954,12 @@ function updateAuthUi(user) {
   signInButton.hidden = true;
   signOutButton.hidden = false;
 
-  const savedId = localStorage.getItem(`active_chat_id:${user.id}`);
-  currentConversationId = isValidConversationId(savedId)
-    ? savedId
-    : createConversationId();
+  if (!authUiInitialized) {
+    currentConversationId = createConversationId();
+    authUiInitialized = true;
+    clearChatBox();
+  }
   localStorage.setItem(`active_chat_id:${user.id}`, currentConversationId);
-  loadMessages();
   loadRecentConversations();
 }
 
