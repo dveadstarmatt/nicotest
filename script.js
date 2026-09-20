@@ -52,6 +52,7 @@ const defaultSettings = {
   context: true,
   sound: false,
   avatar: "✦",
+  customBackgroundImage: "",
 };
 let settings = { ...defaultSettings };
 
@@ -75,9 +76,16 @@ function applySettings() {
     settings.theme === "cyberpunk",
   );
   document.body.classList.toggle("theme-sunset", settings.theme === "sunset");
+  document.body.classList.toggle("theme-aurora", settings.theme === "aurora");
+  document.body.classList.toggle("theme-ocean", settings.theme === "ocean");
+  document.body.classList.toggle("theme-forest", settings.theme === "forest");
+  document.body.classList.toggle(
+    "theme-graphite",
+    settings.theme === "graphite",
+  );
   document.body.classList.toggle(
     "theme-cotton-candy",
-    settings.personality === "mica",
+    settings.personality === "mica" && settings.theme === "midnight",
   );
   document.body.classList.toggle("font-mono", settings.font === "mono");
   document.documentElement.style.setProperty(
@@ -85,6 +93,17 @@ function applySettings() {
     settings.fontScale / 100,
   );
   document.documentElement.style.fontSize = `${settings.fontScale}%`;
+  const hasCustomBackground =
+    settings.customBackgroundImage.startsWith("data:image/");
+  document.body.classList.toggle("custom-background", hasCustomBackground);
+  if (hasCustomBackground) {
+    document.body.style.setProperty(
+      "--custom-background-image",
+      `url("${settings.customBackgroundImage}")`,
+    );
+  } else {
+    document.body.style.removeProperty("--custom-background-image");
+  }
   const mascotLogo = document.getElementById("mascotLogo");
   const brandName = document.getElementById("brandName");
   const modelBadge = document.querySelector(".model-badge");
@@ -104,6 +123,37 @@ function applySettings() {
   });
   const typingIndicator = document.getElementById("typingIndicator");
   if (typingIndicator) typingIndicator.innerText = getAssistantThinkingLabel();
+  const customBackgroundStatus = document.getElementById(
+    "customBackgroundStatus",
+  );
+  if (customBackgroundStatus) {
+    customBackgroundStatus.textContent = hasCustomBackground
+      ? "Image active"
+      : "No image selected";
+  }
+}
+
+function readCustomBackground(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1920 / image.width, 1080 / image.height);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(image.width * scale));
+        canvas.height = Math.max(1, Math.round(image.height * scale));
+        canvas
+          .getContext("2d")
+          .drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", 0.78));
+      };
+      image.onerror = () => reject(new Error("Could not read that image."));
+      image.src = reader.result;
+    };
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
 }
 
 async function apiFetch(url, options = {}) {
@@ -1300,6 +1350,11 @@ function initializeSettingsPanel() {
   const panel = document.getElementById("settingsPanel");
   const button = document.getElementById("settingsBtn");
   const closeButton = document.getElementById("closeSettingsBtn");
+  const customBackgroundBtn = document.getElementById("customBackgroundBtn");
+  const customBackgroundInput = document.getElementById(
+    "customBackgroundInput",
+  );
+  const clearBackgroundBtn = document.getElementById("clearBackgroundBtn");
   const controls = {
     personality: document.getElementById("personalitySetting"),
     length: document.getElementById("lengthSetting"),
@@ -1325,6 +1380,28 @@ function initializeSettingsPanel() {
       saveSettings();
       applySettings();
     });
+  });
+
+  customBackgroundBtn.addEventListener("click", () =>
+    customBackgroundInput.click(),
+  );
+  customBackgroundInput.addEventListener("change", async () => {
+    const [file] = customBackgroundInput.files || [];
+    if (!file) return;
+    try {
+      settings.customBackgroundImage = await readCustomBackground(file);
+      saveSettings();
+      applySettings();
+    } catch (error) {
+      console.error("Could not apply custom background:", error);
+    } finally {
+      customBackgroundInput.value = "";
+    }
+  });
+  clearBackgroundBtn.addEventListener("click", () => {
+    settings.customBackgroundImage = "";
+    saveSettings();
+    applySettings();
   });
 
   document.querySelectorAll(".settings-tab").forEach((tab) => {
