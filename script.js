@@ -542,6 +542,16 @@ function ensureTypingIndicator() {
   indicator.innerText = getAssistantThinkingLabel();
 }
 
+function setThinkingIndicator(indicator, visible) {
+  if (!indicator) return;
+  indicator.innerText = getAssistantThinkingLabel();
+  indicator.style.setProperty(
+    "display",
+    visible ? "block" : "none",
+    "important",
+  );
+}
+
 function startTypewriterReveal(
   contentDiv,
   getLatestText,
@@ -890,8 +900,7 @@ async function sendMessage() {
 
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
-    indicator.innerText = getAssistantThinkingLabel();
-    indicator.style.display = "block";
+    setThinkingIndicator(indicator, true);
     chatBox.appendChild(indicator);
   }
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -952,14 +961,12 @@ async function sendMessage() {
         clearTimeout(typingDelayTimer);
         typingDelayTimer = null;
       }
-      if (indicator) indicator.style.display = "none";
+      setThinkingIndicator(indicator, false);
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
         () => streamComplete,
-        () => {
-          if (indicator) indicator.style.display = "none";
-        },
+        () => {},
       );
     };
 
@@ -972,7 +979,7 @@ async function sendMessage() {
       sentenceBuffer += chunk;
 
       if (typingStarted) {
-        if (indicator) indicator.style.display = "none";
+        setThinkingIndicator(indicator, false);
       }
 
       chatBox.scrollTop = chatBox.scrollHeight;
@@ -1003,7 +1010,7 @@ async function sendMessage() {
       typingDelayTimer = null;
     }
     if (typewriterCleanup) typewriterCleanup();
-    if (indicator) indicator.style.display = "none";
+    setThinkingIndicator(indicator, false);
     if (error.name === "AbortError") {
       contentDiv.innerHTML += " <i>[Generation stopped]</i>";
     } else {
