@@ -291,49 +291,56 @@ async def chat_stream(
     request: ChatRequest,
     authorization: str | None = Header(default=None),
 ):
-  require_supabase()
   require_groq()
-  user = get_current_user(authorization)
-  conv_check = (
-      supabase_client.table("conversations")
-      .select("id")
-      .eq("id", request.conversation_id)
-      .eq("user_id", user.id)
-      .execute()
-  )
+  user = get_current_user(authorization) if authorization else None
+  is_guest = user is None
 
-  if not conv_check.data:
-    title_prompt = (
-        "Summarize this query into a 3 to 5 word title. Do not use quotes or"
-        f" punctuation: '{request.message}'"
+  if not is_guest:
+    conv_check = (
+        supabase_client.table("conversations")
+        .select("id")
+        .eq("id", request.conversation_id)
+        .eq("user_id", user.id)
+        .execute()
     )
-    title_res = await groq_client.chat.completions.create(
-        messages=[{"role": "user", "content": title_prompt}],
-      model="openai/gpt-oss-120b",
-    )
-    generated_title = title_res.choices[0].message.content.strip()
 
-    supabase_client.table("conversations").insert({
-        "id": request.conversation_id,
-        "title": generated_title,
-      "user_id": user.id,
+    if not conv_check.data:
+      title_prompt = (
+          "Summarize this query into a 3 to 5 word title. Do not use quotes or"
+          f" punctuation: '{request.message}'"
+      )
+      title_res = await groq_client.chat.completions.create(
+          messages=[{"role": "user", "content": title_prompt}],
+        model="openai/gpt-oss-120b",
+      )
+      generated_title = title_res.choices[0].message.content.strip()
+
+      supabase_client.table("conversations").insert({
+          "id": request.conversation_id,
+          "title": generated_title,
+        "user_id": user.id,
+      }).execute()
+
+    history_response = (
+        supabase_client.table("messages")
+        .select("role, content")
+        .eq("conversation_id", request.conversation_id)
+        .order("created_at")
+        .execute()
+    )
+    past_messages = (
+        history_response.data
+        if request.settings.get("context", True)
+        else []
+    )
+
+    supabase_client.table("messages").insert({
+        "role": "user",
+        "content": request.message,
+        "conversation_id": request.conversation_id,
     }).execute()
-
-  history_response = (
-      supabase_client.table("messages")
-      .select("role, content")
-      .eq("conversation_id", request.conversation_id)
-      .order("created_at")
-      .execute()
-  )
-
-  past_messages = history_response.data if request.settings.get("context", True) else []
-
-  supabase_client.table("messages").insert({
-      "role": "user",
-      "content": request.message,
-      "conversation_id": request.conversation_id,
-  }).execute()
+  else:
+    past_messages = []
 
   system_prompt = (
       "You are Nico, an advanced AI system assistant. "
@@ -384,7 +391,7 @@ async def chat_stream(
   user_content = build_user_content(request.message, request.attachments)
   messages_payload.append({"role": "user", "content": user_content})
   fixed_creator_reply = creator_reply(request.message)
-  user_name = account_name(user)
+  user_name = account_name(user) if user else "Guest"
   asks_for_name = bool(
       re.search(r"\bwhat(?:'s| is) my name\b", request.message.lower())
   )
@@ -461,7 +468,7 @@ async def chat_stream(
           full_reply = f"Nico could not analyze that request right now. Backend error: {last_error}"
         yield full_reply
 
-    if full_reply.strip():
+    if full_reply.strip() and not is_guest:
       supabase_client.table("messages").insert({
           "role": "assistant",
           "content": full_reply,

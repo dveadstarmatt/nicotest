@@ -107,13 +107,23 @@ function applySettings() {
 }
 
 async function apiFetch(url, options = {}) {
-  if (!authClient) throw new Error("Supabase authentication is not configured");
-  const { data } = await authClient.auth.getSession();
-  if (!data.session) throw new Error("Sign-in required");
+  const { allowGuest = false, ...fetchOptions } = options;
+  const headers = new Headers(fetchOptions.headers || {});
 
-  const headers = new Headers(options.headers || {});
+  if (!authClient) {
+    if (!allowGuest)
+      throw new Error("Supabase authentication is not configured");
+    return fetch(url, { ...fetchOptions, headers });
+  }
+
+  const { data } = await authClient.auth.getSession();
+  if (!data.session) {
+    if (!allowGuest) throw new Error("Sign-in required");
+    return fetch(url, { ...fetchOptions, headers });
+  }
+
   headers.set("Authorization", `Bearer ${data.session.access_token}`);
-  return fetch(url, { ...options, headers });
+  return fetch(url, { ...fetchOptions, headers });
 }
 
 function conversationStorageKey() {
@@ -899,7 +909,9 @@ async function sendMessage() {
 
   stopSpeech();
   appendMessage("user", displayMessage, attachmentRequest.attachments);
-  await saveConversationAttachments(attachmentRequest.attachments);
+  if (currentUser) {
+    await saveConversationAttachments(attachmentRequest.attachments);
+  }
   userInput.value = "";
   selectedAttachments = [];
   renderAttachments();
@@ -940,6 +952,7 @@ async function sendMessage() {
 
   try {
     const response = await apiFetch(`${apiBaseUrl}/chat/stream`, {
+      allowGuest: true,
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: currentAbortController.signal,
@@ -1259,7 +1272,7 @@ function updateAuthUi(user) {
     userName.textContent = "Not signed in";
     if (welcomeName) welcomeName.textContent = "User";
     userAvatar.textContent = "?";
-    userStatus.textContent = "Sign in to save chats";
+    userStatus.textContent = "Guest mode - chats are not saved";
     signInButton.hidden = false;
     signOutButton.hidden = true;
     currentUser = null;
