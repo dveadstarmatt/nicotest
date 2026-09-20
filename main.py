@@ -10,19 +10,19 @@ from fastapi.responses import StreamingResponse
 from groq import AsyncGroq
 from google import genai
 from google.genai import types
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from pypdf import PdfReader
 from docx import Document
 from supabase import Client, create_client
 
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_KEY)
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_VISION_MODEL = os.getenv("GEMINI_VISION_MODEL", "gemini-3.1-flash-lite")
+SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip()
+SUPABASE_KEY = (os.getenv("SUPABASE_KEY") or "").strip()
+SUPABASE_SERVICE_ROLE_KEY = (os.getenv("SUPABASE_SERVICE_ROLE_KEY") or SUPABASE_KEY).strip()
+GROQ_API_KEY = (os.getenv("GROQ_API_KEY") or "").strip()
+GEMINI_API_KEY = (os.getenv("GEMINI_API_KEY") or "").strip()
+GEMINI_VISION_MODEL = (os.getenv("GEMINI_VISION_MODEL") or "gemini-3.1-flash-lite").strip()
 configured_vision_models = [
   model.strip()
   for model in os.getenv("GROQ_VISION_MODELS", "").split(",")
@@ -38,8 +38,14 @@ GROQ_VISION_MODELS = list(dict.fromkeys(
 CREATOR_NAME = os.getenv("CREATOR_NAME", "Matt Andrei Crisostomo")
 CREATOR_HOBBIES = os.getenv("CREATOR_HOBBIES", "Not provided")
 
-if not SUPABASE_URL or not SUPABASE_KEY or not GROQ_API_KEY:
-  raise ValueError("Missing required environment variables in .env file.")
+
+def runtime_service_status():
+  return {
+    "supabase": bool(SUPABASE_URL and SUPABASE_KEY),
+    "groq": bool(GROQ_API_KEY),
+    "gemini": bool(GEMINI_API_KEY),
+  }
+
 
 app = FastAPI()
 
@@ -51,21 +57,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-supabase_client: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-groq_client = AsyncGroq(api_key=GROQ_API_KEY)
+supabase_client: Client | None = (
+    create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+    if SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+    else None
+)
+groq_client = AsyncGroq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 gemini_client = genai.Client(api_key=GEMINI_API_KEY) if GEMINI_API_KEY else None
+
+
+def require_supabase():
+  if not supabase_client:
+    raise HTTPException(status_code=503, detail="Supabase is not configured")
+
+
+def require_groq():
+  if not groq_client:
+    raise HTTPException(status_code=503, detail="Groq is not configured")
 
 
 @app.get("/health")
 def health_check():
-  return {"status": "ok"}
+  return {"status": "ok", "services": runtime_service_status()}
 
 
 class ChatRequest(BaseModel):
   message: str
   conversation_id: str
-  attachments: list[dict] = []
-  settings: dict = {}
+  attachments: list[dict] = Field(default_factory=list)
+  settings: dict = Field(default_factory=dict)
 
 
 class RenameRequest(BaseModel):
@@ -73,6 +93,7 @@ class RenameRequest(BaseModel):
 
 
 def get_current_user(authorization: str | None):
+  require_supabase()
   if not authorization or not authorization.startswith("Bearer "):
     raise HTTPException(status_code=401, detail="Sign-in required")
 
@@ -88,6 +109,7 @@ def get_current_user(authorization: str | None):
 
 
 def get_owned_conversation(conversation_id: str, user_id: str):
+  require_supabase()
   response = (
       supabase_client.table("conversations")
       .select("id")
@@ -200,6 +222,7 @@ async def generate_gemini_image_response(message, attachments, system_prompt):
 
 @app.get("/conversations")
 def get_conversations(authorization: str | None = Header(default=None)):
+  require_supabase()
   user = get_current_user(authorization)
   response = (
       supabase_client.table("conversations")
@@ -218,6 +241,7 @@ def rename_conversation(
     request: RenameRequest,
     authorization: str | None = Header(default=None),
 ):
+  require_supabase()
   user = get_current_user(authorization)
   get_owned_conversation(conversation_id, user.id)
   supabase_client.table("conversations").update(
@@ -232,6 +256,7 @@ def delete_conversation(
     conversation_id: str,
     authorization: str | None = Header(default=None),
 ):
+  require_supabase()
   user = get_current_user(authorization)
   get_owned_conversation(conversation_id, user.id)
   supabase_client.table("messages").delete().eq(
@@ -248,6 +273,7 @@ def get_messages(
     conversation_id: str,
     authorization: str | None = Header(default=None),
 ):
+  require_supabase()
   user = get_current_user(authorization)
   get_owned_conversation(conversation_id, user.id)
   response = (
@@ -265,6 +291,8 @@ async def chat_stream(
     request: ChatRequest,
     authorization: str | None = Header(default=None),
 ):
+  require_supabase()
+  require_groq()
   user = get_current_user(authorization)
   conv_check = (
       supabase_client.table("conversations")

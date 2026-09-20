@@ -11,7 +11,13 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
       - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_VISION_MODELS
         sync: false
       - key: GEMINI_API_KEY
         sync: false

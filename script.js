@@ -118,6 +118,16 @@ function conversationStorageKey() {
   return currentUser ? `active_chat_id:${currentUser.id}` : "active_chat_id";
 }
 
+function persistCurrentConversationId() {
+  localStorage.setItem("active_chat_id", currentConversationId);
+  if (currentUser) {
+    localStorage.setItem(
+      `active_chat_id:${currentUser.id}`,
+      currentConversationId,
+    );
+  }
+}
+
 function attachmentStorageKey(conversationId = currentConversationId) {
   return `conversation_attachments:${conversationId}`;
 }
@@ -141,27 +151,34 @@ async function createStoredImagePreview(dataUrl) {
 }
 
 async function saveConversationAttachments(attachments) {
-  const imageAttachments = await Promise.all(
-    attachments
-      .filter((attachment) => attachment.mime_type.startsWith("image/"))
-      .map(async (attachment) => ({
-        name: attachment.name,
-        mime_type: attachment.mime_type,
-        data_url: await createStoredImagePreview(attachment.data_url),
-      })),
-  );
-
   try {
     const stored = JSON.parse(
       localStorage.getItem(attachmentStorageKey()) || "[]",
     );
-    stored.push(imageAttachments);
+    const normalized = await Promise.all(
+      attachments.map(async (attachment) => {
+        if (attachment.mime_type.startsWith("image/")) {
+          return {
+            name: attachment.name,
+            mime_type: attachment.mime_type,
+            data_url: await createStoredImagePreview(attachment.data_url),
+          };
+        }
+        return {
+          name: attachment.name,
+          mime_type: attachment.mime_type,
+          data_url: attachment.data_url || "",
+        };
+      }),
+    );
+
+    stored.push(normalized);
     localStorage.setItem(
       attachmentStorageKey(),
       JSON.stringify(stored.slice(-50)),
     );
   } catch (error) {
-    console.warn("Could not persist image preview:", error);
+    console.warn("Could not persist attachments:", error);
   }
 }
 
@@ -294,6 +311,11 @@ if (addBtn) {
     addFilesDropdown.setAttribute("aria-hidden", String(!isOpen));
     addBtn.setAttribute("aria-expanded", String(isOpen));
   });
+}
+
+function clearSelectedAttachments() {
+  selectedAttachments = [];
+  renderAttachments();
 }
 
 function renderAttachments() {
@@ -499,6 +521,12 @@ function stopSpeech() {
   isSpeaking = false;
 }
 
+function getAssistantThinkingLabel() {
+  return settings.personality === "mica"
+    ? "Mica is thinking..."
+    : "Nico is thinking...";
+}
+
 function ensureTypingIndicator() {
   let indicator = document.getElementById("typingIndicator");
   if (!indicator) {
@@ -506,9 +534,42 @@ function ensureTypingIndicator() {
     indicator.id = "typingIndicator";
     indicator.className = "message assistant typing";
     indicator.style.display = "none";
-    indicator.innerText = "Nico is thinking...";
+    indicator.innerText = getAssistantThinkingLabel();
     chatBox.appendChild(indicator);
   }
+  indicator.innerText = getAssistantThinkingLabel();
+}
+
+function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
+  if (!contentDiv) return;
+
+  let displayedText = "";
+  let writerTimer = null;
+
+  const renderNextCharacter = () => {
+    const latestText = getLatestText() || "";
+
+    if (latestText.length <= displayedText.length) {
+      if (typeof marked !== "undefined") {
+        contentDiv.innerHTML = marked.parse(latestText);
+      } else {
+        contentDiv.textContent = latestText;
+      }
+      attachCodeCopyButtons(contentDiv.closest(".message"));
+      if (typeof onComplete === "function") onComplete();
+      return;
+    }
+
+    displayedText = latestText.slice(0, displayedText.length + 1);
+    contentDiv.textContent = displayedText;
+    writerTimer = setTimeout(renderNextCharacter, 18);
+  };
+
+  writerTimer = setTimeout(renderNextCharacter, 1200);
+
+  return () => {
+    if (writerTimer) clearTimeout(writerTimer);
+  };
 }
 
 function attachCodeCopyButtons(messageDiv) {
@@ -582,7 +643,7 @@ function focusInput() {
 function startNewChat() {
   stopSpeech();
   currentConversationId = createConversationId();
-  localStorage.setItem(conversationStorageKey(), currentConversationId);
+  persistCurrentConversationId();
   clearChatBox();
   loadRecentConversations();
   focusInput();
@@ -591,7 +652,7 @@ function startNewChat() {
 async function switchConversation(id) {
   stopSpeech();
   currentConversationId = id;
-  localStorage.setItem("active_chat_id", currentConversationId);
+  persistCurrentConversationId();
   document.querySelectorAll(".recent-item").forEach((item) => {
     item.classList.toggle("active", item.dataset.conversationId === id);
   });
@@ -639,6 +700,12 @@ async function deleteConversation(id, e) {
 
 async function loadRecentConversations() {
   try {
+    if (!authClient) {
+      const recentsList = document.getElementById("recent-chats");
+      if (recentsList) recentsList.innerHTML = "";
+      return;
+    }
+
     const response = await apiFetch(`${apiBaseUrl}/conversations`);
     const conversations = await response.json();
 
@@ -681,7 +748,9 @@ async function loadRecentConversations() {
       recentsList.appendChild(item);
     });
   } catch (err) {
-    console.error("Failed to render recents:", err);
+    if (err?.message !== "Sign-in required") {
+      console.error("Failed to render recents:", err);
+    }
   }
 }
 
@@ -689,6 +758,11 @@ async function loadMessages() {
   const loadToken = ++conversationLoadToken;
   const conversationId = currentConversationId;
   try {
+    if (!authClient) {
+      clearChatBox();
+      return;
+    }
+
     const res = await apiFetch(`${apiBaseUrl}/messages/${conversationId}`);
     const data = await res.json();
     if (
@@ -711,7 +785,9 @@ async function loadMessages() {
     }
   } catch (err) {
     if (loadToken === conversationLoadToken) {
-      console.error("Failed to load messages:", err);
+      if (err?.message !== "Sign-in required") {
+        console.error("Failed to load messages:", err);
+      }
       appLayout?.classList.remove("conversation-loading");
     }
   }
@@ -762,6 +838,7 @@ async function sendMessage() {
   ) {
     appendMessage("user", displayMessage, attachmentRequest.attachments);
     userInput.value = "";
+    clearSelectedAttachments();
     handleCommand(message);
     return;
   }
@@ -775,6 +852,7 @@ async function sendMessage() {
 
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
+    indicator.innerText = getAssistantThinkingLabel();
     indicator.style.display = "block";
     chatBox.appendChild(indicator);
   }
@@ -800,6 +878,8 @@ async function sendMessage() {
 
   let accumulatedText = "";
   let sentenceBuffer = "";
+  let typingStarted = false;
+  let typewriterCleanup = null;
 
   try {
     const response = await apiFetch(`${apiBaseUrl}/chat/stream`, {
@@ -821,10 +901,26 @@ async function sendMessage() {
       );
     }
 
-    if (indicator) indicator.style.display = "none";
-
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+
+    const triggerTypingFlow = () => {
+      if (typingStarted) return;
+      typingStarted = true;
+      typewriterCleanup = startTypewriterReveal(
+        contentDiv,
+        () => accumulatedText,
+        () => {
+          if (indicator) indicator.style.display = "none";
+        },
+      );
+    };
+
+    const wakeTypingFlowAfterDelay = () => {
+      setTimeout(triggerTypingFlow, 1400);
+    };
+
+    wakeTypingFlowAfterDelay();
 
     while (true) {
       const { value, done } = await reader.read();
@@ -834,10 +930,10 @@ async function sendMessage() {
       accumulatedText += chunk;
       sentenceBuffer += chunk;
 
-      contentDiv.innerHTML =
-        typeof marked !== "undefined"
-          ? marked.parse(accumulatedText)
-          : accumulatedText;
+      if (typingStarted) {
+        if (indicator) indicator.style.display = "none";
+      }
+
       chatBox.scrollTop = chatBox.scrollHeight;
 
       let match;
@@ -855,10 +951,20 @@ async function sendMessage() {
       queueSentence(sentenceBuffer);
     }
 
-    attachCodeCopyButtons(assistantMsgDiv);
+    if (!typingStarted) {
+      if (indicator) indicator.style.display = "none";
+      if (typeof marked !== "undefined") {
+        contentDiv.innerHTML = marked.parse(accumulatedText || "");
+      } else {
+        contentDiv.textContent = accumulatedText || "";
+      }
+      attachCodeCopyButtons(assistantMsgDiv);
+    }
+
     if (settings.sound) playCompletionChime();
     loadRecentConversations();
   } catch (error) {
+    if (typewriterCleanup) typewriterCleanup();
     if (indicator) indicator.style.display = "none";
     if (error.name === "AbortError") {
       contentDiv.innerHTML += " <i>[Generation stopped]</i>";
@@ -866,6 +972,8 @@ async function sendMessage() {
       contentDiv.innerText = `Error: ${error.message || "Could not connect to Nico backend."}`;
     }
   } finally {
+    if (typewriterCleanup) typewriterCleanup();
+    if (indicator) indicator.style.display = "none";
     currentAbortController = null;
     resetSendButton();
   }
@@ -1107,7 +1215,18 @@ function updateAuthUi(user) {
     userStatus.textContent = "Sign in to save chats";
     signInButton.hidden = false;
     signOutButton.hidden = true;
-    clearChatBox();
+    currentUser = null;
+    const restored = localStorage.getItem("active_chat_id");
+    if (isValidConversationId(restored)) {
+      currentConversationId = restored;
+    } else {
+      currentConversationId = createConversationId();
+    }
+    persistCurrentConversationId();
+    if (document.getElementById("typingIndicator")) {
+      document.getElementById("typingIndicator").innerText =
+        getAssistantThinkingLabel();
+    }
     return;
   }
 
@@ -1124,11 +1243,16 @@ function updateAuthUi(user) {
   signOutButton.hidden = false;
 
   if (!authUiInitialized) {
-    currentConversationId = createConversationId();
+    const savedUserConversationId = localStorage.getItem(
+      `active_chat_id:${user.id}`,
+    );
+    currentConversationId = isValidConversationId(savedUserConversationId)
+      ? savedUserConversationId
+      : createConversationId();
     authUiInitialized = true;
     clearChatBox();
   }
-  localStorage.setItem(`active_chat_id:${user.id}`, currentConversationId);
+  persistCurrentConversationId();
   loadRecentConversations();
 }
 
