@@ -428,6 +428,13 @@ body::before {
 .settings-panel-header strong, .settings-panel-header span { display: block; }
 .settings-panel-header span { margin-top: 4px; color: var(--text-muted); font-size: 0.72rem; }
 .settings-close { border: 0; background: transparent; color: var(--text-muted); cursor: pointer; font-size: 1.3rem; }
+.settings-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 8px 10px 0; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.settings-tab { min-width: 0; padding: 9px 5px; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; background: transparent; color: var(--text-muted); cursor: pointer; font: inherit; font-size: 0.68rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease; }
+.settings-tab:hover, .settings-tab.is-active { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.settings-tab.is-active { border-bottom-color: var(--accent); }
+.settings-tab-panel { min-height: 260px; animation: settings-panel-in 0.16s ease-out both; }
+.settings-tab-panel[hidden] { display: none; }
+@keyframes settings-panel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 .settings-scroll { max-height: calc(min(720px, 100vh - 160px)); overflow-y: auto; padding: 10px 14px 14px; }
 .setting-row, .setting-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 10px 0; color: var(--text-primary); font-size: 0.78rem; }
 .setting-row select, .memory-input, .settings-actions button { border: 1px solid rgba(255,255,255,0.11); border-radius: 9px; background: rgba(255,255,255,0.07); color: var(--text-primary); padding: 7px 8px; font: inherit; font-size: 0.72rem; }

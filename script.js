@@ -1327,6 +1327,21 @@ function initializeSettingsPanel() {
     });
   });
 
+  document.querySelectorAll(".settings-tab").forEach((tab) => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".settings-tab").forEach((candidate) => {
+        const active = candidate === tab;
+        candidate.classList.toggle("is-active", active);
+        candidate.setAttribute("aria-selected", String(active));
+      });
+      document.querySelectorAll(".settings-tab-panel").forEach((panel) => {
+        const active = panel.id === tab.dataset.settingsTab;
+        panel.classList.toggle("is-active", active);
+        panel.hidden = !active;
+      });
+    });
+  });
+
   const setOpen = (open) => {
     panel.classList.toggle("open", open);
     panel.setAttribute("aria-hidden", String(!open));

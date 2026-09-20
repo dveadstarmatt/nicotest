@@ -71,71 +71,85 @@
                 </div>
                 <button id="closeSettingsBtn" class="settings-close" type="button" aria-label="Close settings">×</button>
             </div>
+            <div class="settings-tabs" role="tablist" aria-label="Settings sections">
+                <button class="settings-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="settings-personality" data-settings-tab="settings-personality">Personality</button>
+                <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-appearance" data-settings-tab="settings-appearance">Appearance</button>
+                <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-behavior" data-settings-tab="settings-behavior">Behavior</button>
+                <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-account" data-settings-tab="settings-account">Account</button>
+            </div>
             <div class="settings-scroll">
-                <label class="setting-row">Personality &amp; tone
-                    <select id="personalitySetting">
-                        <option value="professional">Professional</option>
-                        <option value="casual">Casual</option>
-                        <option value="hype">Hype</option>
-                        <option value="mica">Mica / Nurturing</option>
-                    </select>
-                </label>
-                <label class="setting-row">Response length
-                    <select id="lengthSetting">
-                        <option value="short">Short and direct</option>
-                        <option value="detailed">Detailed explanations</option>
-                    </select>
-                </label>
-                <label class="setting-row">Theme
-                    <select id="themeSetting">
-                        <option value="midnight">Midnight blue</option>
-                        <option value="cyberpunk">Cyberpunk neon</option>
-                        <option value="sunset">Sunset orange</option>
-                    </select>
-                </label>
-                <label class="setting-row">Appearance
-                    <select id="modeSetting">
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
-                    </select>
-                </label>
-                <label class="setting-row">Font
-                    <select id="fontSetting">
-                        <option value="sans">Clean sans-serif</option>
-                        <option value="mono">Monospace</option>
-                    </select>
-                </label>
-                <label class="setting-row">Text size
-                    <input id="fontSizeSetting" type="range" min="90" max="120" step="5" value="100">
-                </label>
-                <label class="setting-row">Model
-                    <select id="modelSetting">
-                        <option value="light">Lightweight / fast</option>
-                        <option value="heavy">Heavy / complex coding</option>
-                    </select>
-                </label>
-                <label class="setting-toggle"><span>Custom memory</span><input id="memorySetting" type="checkbox" checked></label>
-                <textarea id="memoryInput" class="memory-input" rows="2" placeholder="Facts Nico should remember about you"></textarea>
-                <label class="setting-toggle"><span>Use chat context</span><input id="contextSetting" type="checkbox" checked></label>
-                <label class="setting-toggle"><span>Sound effects</span><input id="soundSetting" type="checkbox"></label>
-                <label class="setting-row">Mascot
-                    <select id="avatarSetting">
-                        <option value="✦">Spark</option>
-                        <option value="◈">Prism</option>
-                        <option value="✧">Star</option>
-                        <option value="●">Orb</option>
-                    </select>
-                </label>
-                <div class="mascot-preview" id="mascotPreview" aria-live="polite">✦ <span>Current mascot</span></div>
-                <div class="settings-auth-actions">
-                    <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
-                    <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
-                </div>
-                <div class="settings-actions">
-                    <button id="exportMarkdownBtn" type="button">Export Markdown</button>
-                    <button id="exportJsonBtn" type="button">Export JSON</button>
-                    <button id="clearContextBtn" type="button">Clear short-term context</button>
-                </div>
+                <section class="settings-tab-panel is-active" id="settings-personality" role="tabpanel">
+                    <label class="setting-row">Personality &amp; tone
+                        <select id="personalitySetting">
+                            <option value="professional">Professional</option>
+                            <option value="casual">Casual</option>
+                            <option value="hype">Hype</option>
+                            <option value="mica">Mica / Nurturing</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">Response length
+                        <select id="lengthSetting">
+                            <option value="short">Short and direct</option>
+                            <option value="detailed">Detailed explanations</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">Model
+                        <select id="modelSetting">
+                            <option value="light">Lightweight / fast</option>
+                            <option value="heavy">Heavy / complex coding</option>
+                        </select>
+                    </label>
+                </section>
+                <section class="settings-tab-panel" id="settings-appearance" role="tabpanel" hidden>
+                    <label class="setting-row">Theme
+                        <select id="themeSetting">
+                            <option value="midnight">Midnight blue</option>
+                            <option value="cyberpunk">Cyberpunk neon</option>
+                            <option value="sunset">Sunset orange</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">Appearance
+                        <select id="modeSetting">
+                            <option value="dark">Dark</option>
+                            <option value="light">Light</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">Font
+                        <select id="fontSetting">
+                            <option value="sans">Clean sans-serif</option>
+                            <option value="mono">Monospace</option>
+                        </select>
+                    </label>
+                    <label class="setting-row">Text size
+                        <input id="fontSizeSetting" type="range" min="90" max="120" step="5" value="100">
+                    </label>
+                    <label class="setting-row">Mascot
+                        <select id="avatarSetting">
+                            <option value="✦">Spark</option>
+                            <option value="◈">Prism</option>
+                            <option value="✧">Star</option>
+                            <option value="●">Orb</option>
+                        </select>
+                    </label>
+                    <div class="mascot-preview" id="mascotPreview" aria-live="polite">✦ <span>Current mascot</span></div>
+                </section>
+                <section class="settings-tab-panel" id="settings-behavior" role="tabpanel" hidden>
+                    <label class="setting-toggle"><span>Custom memory</span><input id="memorySetting" type="checkbox" checked></label>
+                    <textarea id="memoryInput" class="memory-input" rows="2" placeholder="Facts Nico should remember about you"></textarea>
+                    <label class="setting-toggle"><span>Use chat context</span><input id="contextSetting" type="checkbox" checked></label>
+                    <label class="setting-toggle"><span>Sound effects</span><input id="soundSetting" type="checkbox"></label>
+                </section>
+                <section class="settings-tab-panel" id="settings-account" role="tabpanel" hidden>
+                    <div class="settings-auth-actions">
+                        <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
+                        <button class="auth-btn" id="sign-out-btn" type="button" hidden>Sign out</button>
+                    </div>
+                    <div class="settings-actions">
+                        <button id="exportMarkdownBtn" type="button">Export Markdown</button>
+                        <button id="exportJsonBtn" type="button">Export JSON</button>
+                        <button id="clearContextBtn" type="button">Clear short-term context</button>
+                    </div>
+                </section>
             </div>
         </section>
 
