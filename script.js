@@ -542,7 +542,12 @@ function ensureTypingIndicator() {
   indicator.innerText = getAssistantThinkingLabel();
 }
 
-function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
+function startTypewriterReveal(
+  contentDiv,
+  getLatestText,
+  isStreamComplete,
+  onComplete,
+) {
   if (!contentDiv) return;
 
   let displayedText = "";
@@ -553,6 +558,11 @@ function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
     const latestText = getLatestText() || "";
 
     if (!latestText) {
+      writerTimer = setTimeout(renderNextCharacter, 50);
+      return;
+    }
+
+    if (latestText.length <= displayedText.length && !isStreamComplete()) {
       writerTimer = setTimeout(renderNextCharacter, 50);
       return;
     }
@@ -890,6 +900,7 @@ async function sendMessage() {
   let accumulatedText = "";
   let sentenceBuffer = "";
   let typingStarted = false;
+  let streamComplete = false;
   let typewriterCleanup = null;
   let typingDelayTimer = null;
 
@@ -926,6 +937,7 @@ async function sendMessage() {
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
+        () => streamComplete,
         () => {
           if (indicator) indicator.style.display = "none";
         },
@@ -963,6 +975,8 @@ async function sendMessage() {
       queueSentence(sentenceBuffer);
     }
 
+    streamComplete = true;
+
     if (!typingStarted) {
       if (typingDelayTimer) {
         clearTimeout(typingDelayTimer);
@@ -990,8 +1004,6 @@ async function sendMessage() {
       clearTimeout(typingDelayTimer);
       typingDelayTimer = null;
     }
-    if (typewriterCleanup) typewriterCleanup();
-    if (indicator) indicator.style.display = "none";
     currentAbortController = null;
     resetSendButton();
   }
