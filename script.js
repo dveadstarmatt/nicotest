@@ -762,6 +762,112 @@ async function deleteConversation(id, e) {
   }
 }
 
+function getPinnedConversationIds() {
+  try {
+    return JSON.parse(localStorage.getItem("pinned_conversations") || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function setPinnedConversation(id, pinned) {
+  const pinnedIds = getPinnedConversationIds().filter((value) => value !== id);
+  if (pinned) pinnedIds.unshift(id);
+  localStorage.setItem("pinned_conversations", JSON.stringify(pinnedIds));
+  loadRecentConversations();
+}
+
+function closeConversationMenus() {
+  document.querySelectorAll(".conversation-menu.is-open").forEach((menu) => {
+    menu.classList.remove("is-open");
+    menu.previousElementSibling?.setAttribute("aria-expanded", "false");
+  });
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".conversation-actions")) {
+    closeConversationMenus();
+  }
+});
+
+async function shareConversation(id, title) {
+  const shareUrl = `${window.location.href.split("#")[0]}#chat=${encodeURIComponent(id)}`;
+  const shareData = { title: title || "Nico conversation", url: shareUrl };
+
+  try {
+    if (navigator.share) {
+      await navigator.share(shareData);
+    } else {
+      await navigator.clipboard.writeText(shareUrl);
+      alert("Conversation link copied.");
+    }
+  } catch (error) {
+    if (error?.name !== "AbortError") {
+      console.error("Failed to share conversation:", error);
+    }
+  }
+}
+
+function createConversationMenu(item, conversation) {
+  const actions = document.createElement("div");
+  actions.className = "conversation-actions";
+
+  const trigger = document.createElement("button");
+  trigger.className = "conversation-menu-trigger";
+  trigger.type = "button";
+  trigger.innerText = "⋮";
+  trigger.title = "Conversation actions";
+  trigger.setAttribute("aria-label", "Conversation actions");
+  trigger.setAttribute("aria-haspopup", "menu");
+  trigger.setAttribute("aria-expanded", "false");
+
+  const menu = document.createElement("div");
+  menu.className = "conversation-menu";
+  menu.setAttribute("role", "menu");
+
+  const addMenuItem = (label, icon, handler, danger = false) => {
+    const button = document.createElement("button");
+    button.className = `conversation-menu-item${danger ? " danger" : ""}`;
+    button.type = "button";
+    button.setAttribute("role", "menuitem");
+    button.innerHTML = `<span class="conversation-menu-icon">${icon}</span><span>${label}</span>`;
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      closeConversationMenus();
+      await handler(event);
+    });
+    menu.appendChild(button);
+  };
+
+  addMenuItem("Share conversation", "↗", () =>
+    shareConversation(conversation.id, conversation.title),
+  );
+  const isPinned = getPinnedConversationIds().includes(conversation.id);
+  addMenuItem(isPinned ? "Unpin" : "Pin", "⚑", () =>
+    setPinnedConversation(conversation.id, !isPinned),
+  );
+  addMenuItem("Rename", "✎", (event) =>
+    renameConversation(conversation.id, conversation.title, event),
+  );
+  addMenuItem(
+    "Delete",
+    "⌫",
+    (event) => deleteConversation(conversation.id, event),
+    true,
+  );
+
+  trigger.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const shouldOpen = !menu.classList.contains("is-open");
+    closeConversationMenus();
+    menu.classList.toggle("is-open", shouldOpen);
+    trigger.setAttribute("aria-expanded", String(shouldOpen));
+  });
+  actions.addEventListener("click", (event) => event.stopPropagation());
+  actions.append(trigger, menu);
+  item.appendChild(actions);
+}
+
 async function loadRecentConversations() {
   try {
     if (!authClient) {
@@ -777,6 +883,11 @@ async function loadRecentConversations() {
     if (!recentsList) return;
     recentsList.innerHTML = "";
 
+    const pinnedIds = getPinnedConversationIds();
+    conversations.sort(
+      (left, right) => pinnedIds.indexOf(right.id) - pinnedIds.indexOf(left.id),
+    );
+
     conversations.forEach((conv) => {
       const item = document.createElement("div");
       item.className = "recent-item";
@@ -787,28 +898,14 @@ async function loadRecentConversations() {
       titleSpan.className = "recent-title";
       titleSpan.innerText = conv.title || "Untitled Chat";
 
-      const actionsDiv = document.createElement("div");
-      actionsDiv.className = "item-actions";
-
-      const editBtn = document.createElement("button");
-      editBtn.className = "action-icon";
-      editBtn.innerText = "✏️";
-      editBtn.title = "Rename";
-      editBtn.onclick = (e) => renameConversation(conv.id, conv.title, e);
-
-      const deleteBtn = document.createElement("button");
-      deleteBtn.className = "action-icon";
-      deleteBtn.innerText = "🗑️";
-      deleteBtn.title = "Delete";
-      deleteBtn.onclick = (e) => deleteConversation(conv.id, e);
-
-      actionsDiv.appendChild(editBtn);
-      actionsDiv.appendChild(deleteBtn);
-
       item.appendChild(titleSpan);
-      item.appendChild(actionsDiv);
+      createConversationMenu(item, conv);
 
-      item.addEventListener("click", () => switchConversation(conv.id));
+      item.addEventListener("click", (event) => {
+        if (!event.target.closest(".conversation-actions")) {
+          switchConversation(conv.id);
+        }
+      });
       recentsList.appendChild(item);
     });
   } catch (err) {
