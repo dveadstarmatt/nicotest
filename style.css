@@ -680,6 +680,10 @@ button.export-btn:hover {
     display: none;
 }
 
+.typing.is-visible {
+    display: block;
+}
+
 /* Code Copy Button */
 .code-container {
     position: relative;

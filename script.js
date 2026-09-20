@@ -545,11 +545,8 @@ function ensureTypingIndicator() {
 function setThinkingIndicator(indicator, visible) {
   if (!indicator) return;
   indicator.innerText = getAssistantThinkingLabel();
-  indicator.style.setProperty(
-    "display",
-    visible ? "block" : "none",
-    "important",
-  );
+  indicator.classList.toggle("is-visible", visible);
+  indicator.setAttribute("aria-hidden", String(!visible));
 }
 
 function startTypewriterReveal(
@@ -848,7 +845,7 @@ function stopGeneration() {
   }
   stopSpeech();
   const indicator = document.getElementById("typingIndicator");
-  if (indicator) indicator.style.display = "none";
+  setThinkingIndicator(indicator, false);
   resetSendButton();
 }
 
@@ -966,7 +963,6 @@ async function sendMessage() {
         contentDiv,
         () => accumulatedText,
         () => streamComplete,
-        () => {},
       );
     };
 
