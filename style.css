@@ -191,6 +191,22 @@ body::before {
     white-space: nowrap;
 }
 
+.recent-title-wrap {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.pinned-flag {
+    flex: 0 0 auto;
+    color: var(--accent);
+    font-size: 0.86rem;
+    line-height: 1;
+    filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 48%, transparent));
+}
+
 .conversation-actions {
     position: relative;
     flex: 0 0 auto;

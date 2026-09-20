@@ -947,11 +947,23 @@ async function loadRecentConversations() {
       item.dataset.conversationId = conv.id;
       if (conv.id === currentConversationId) item.classList.add("active");
 
+      const isPinned = pinnedIds.includes(conv.id);
+      const titleWrap = document.createElement("span");
+      titleWrap.className = "recent-title-wrap";
       const titleSpan = document.createElement("span");
       titleSpan.className = "recent-title";
       titleSpan.innerText = conv.title || "Untitled Chat";
+      if (isPinned) {
+        const pinFlag = document.createElement("span");
+        pinFlag.className = "pinned-flag";
+        pinFlag.innerText = "⚑";
+        pinFlag.title = "Pinned conversation";
+        pinFlag.setAttribute("aria-label", "Pinned conversation");
+        titleWrap.appendChild(pinFlag);
+      }
+      titleWrap.appendChild(titleSpan);
 
-      item.appendChild(titleSpan);
+      item.appendChild(titleWrap);
       createConversationMenu(item, conv);
 
       item.addEventListener("click", (event) => {
