@@ -880,6 +880,7 @@ async function sendMessage() {
   let sentenceBuffer = "";
   let typingStarted = false;
   let typewriterCleanup = null;
+  let typingDelayTimer = null;
 
   try {
     const response = await apiFetch(`${apiBaseUrl}/chat/stream`, {
@@ -907,6 +908,10 @@ async function sendMessage() {
     const triggerTypingFlow = () => {
       if (typingStarted) return;
       typingStarted = true;
+      if (typingDelayTimer) {
+        clearTimeout(typingDelayTimer);
+        typingDelayTimer = null;
+      }
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
@@ -916,11 +921,7 @@ async function sendMessage() {
       );
     };
 
-    const wakeTypingFlowAfterDelay = () => {
-      setTimeout(triggerTypingFlow, 1400);
-    };
-
-    wakeTypingFlowAfterDelay();
+    typingDelayTimer = setTimeout(triggerTypingFlow, 1400);
 
     while (true) {
       const { value, done } = await reader.read();
@@ -952,18 +953,20 @@ async function sendMessage() {
     }
 
     if (!typingStarted) {
-      if (indicator) indicator.style.display = "none";
-      if (typeof marked !== "undefined") {
-        contentDiv.innerHTML = marked.parse(accumulatedText || "");
-      } else {
-        contentDiv.textContent = accumulatedText || "";
+      if (typingDelayTimer) {
+        clearTimeout(typingDelayTimer);
+        typingDelayTimer = null;
       }
-      attachCodeCopyButtons(assistantMsgDiv);
+      triggerTypingFlow();
     }
 
     if (settings.sound) playCompletionChime();
     loadRecentConversations();
   } catch (error) {
+    if (typingDelayTimer) {
+      clearTimeout(typingDelayTimer);
+      typingDelayTimer = null;
+    }
     if (typewriterCleanup) typewriterCleanup();
     if (indicator) indicator.style.display = "none";
     if (error.name === "AbortError") {
@@ -972,6 +975,10 @@ async function sendMessage() {
       contentDiv.innerText = `Error: ${error.message || "Could not connect to Nico backend."}`;
     }
   } finally {
+    if (typingDelayTimer) {
+      clearTimeout(typingDelayTimer);
+      typingDelayTimer = null;
+    }
     if (typewriterCleanup) typewriterCleanup();
     if (indicator) indicator.style.display = "none";
     currentAbortController = null;
