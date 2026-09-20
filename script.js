@@ -552,18 +552,28 @@ function startTypewriterReveal(
 
   let displayedText = "";
   let writerTimer = null;
+  let animationFrame = null;
+  let lastFrameTime = 0;
   contentDiv.style.visibility = "hidden";
 
-  const renderNextCharacter = () => {
+  const renderNextFrame = (timestamp) => {
     const latestText = getLatestText() || "";
 
     if (!latestText) {
-      writerTimer = setTimeout(renderNextCharacter, 50);
+      animationFrame = requestAnimationFrame(renderNextFrame);
       return;
     }
 
+    if (!lastFrameTime) lastFrameTime = timestamp;
+    const elapsed = timestamp - lastFrameTime;
+    if (elapsed < 16) {
+      animationFrame = requestAnimationFrame(renderNextFrame);
+      return;
+    }
+
+    lastFrameTime = timestamp;
     if (latestText.length <= displayedText.length && !isStreamComplete()) {
-      writerTimer = setTimeout(renderNextCharacter, 50);
+      animationFrame = requestAnimationFrame(renderNextFrame);
       return;
     }
 
@@ -579,16 +589,24 @@ function startTypewriterReveal(
       return;
     }
 
-    displayedText = latestText.slice(0, displayedText.length + 1);
+    const charactersToReveal = Math.max(1, Math.round(elapsed * 0.035));
+    displayedText = latestText.slice(
+      0,
+      Math.min(latestText.length, displayedText.length + charactersToReveal),
+    );
     contentDiv.textContent = displayedText;
     contentDiv.style.visibility = "visible";
-    writerTimer = setTimeout(renderNextCharacter, 18);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    animationFrame = requestAnimationFrame(renderNextFrame);
   };
 
-  writerTimer = setTimeout(renderNextCharacter, 1200);
+  writerTimer = setTimeout(() => {
+    animationFrame = requestAnimationFrame(renderNextFrame);
+  }, 1200);
 
   return () => {
     if (writerTimer) clearTimeout(writerTimer);
+    if (animationFrame) cancelAnimationFrame(animationFrame);
   };
 }
 
@@ -934,6 +952,7 @@ async function sendMessage() {
         clearTimeout(typingDelayTimer);
         typingDelayTimer = null;
       }
+      if (indicator) indicator.style.display = "none";
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
