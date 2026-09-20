@@ -55,6 +55,9 @@ const defaultSettings = {
   customBackgroundImage: "",
 };
 let settings = { ...defaultSettings };
+let visionStream = null;
+let capturedVisionDataUrl = "";
+let visionAutoAnalyzeLock = false;
 
 try {
   settings = {
@@ -155,6 +158,111 @@ function readCustomBackground(file) {
     reader.readAsDataURL(file);
   });
 }
+
+async function startVisionMode() {
+  const overlay = document.getElementById("visionOverlay");
+  const preview = document.getElementById("visionPreview");
+  const status = document.getElementById("visionStatus");
+  const captureButton = document.getElementById("captureVisionBtn");
+  const analyzeButton = document.getElementById("analyzeVisionBtn");
+  overlay.hidden = false;
+  overlay.setAttribute("aria-hidden", "false");
+  status.textContent = "Choose a window or screen to begin.";
+  captureButton.disabled = true;
+  analyzeButton.disabled = true;
+
+  if (!navigator.mediaDevices?.getDisplayMedia) {
+    status.textContent = "Screen capture is not supported in this browser.";
+    return;
+  }
+
+  try {
+    visionStream = await navigator.mediaDevices.getDisplayMedia({
+      video: { cursor: "always" },
+      audio: false,
+    });
+    preview.srcObject = visionStream;
+    status.textContent = "Screen sharing is active";
+    captureButton.disabled = false;
+    analyzeButton.disabled = false;
+    visionStream
+      .getVideoTracks()[0]
+      ?.addEventListener("ended", stopVisionMode, { once: true });
+  } catch (error) {
+    status.textContent =
+      error?.name === "NotAllowedError"
+        ? "Access was canceled. Close this view or try again."
+        : "Could not start screen capture. Try again.";
+    if (error?.name !== "NotAllowedError") {
+      console.error("Could not start screen reader:", error);
+    }
+  }
+}
+
+function stopVisionMode() {
+  visionStream?.getTracks().forEach((track) => track.stop());
+  visionStream = null;
+  const preview = document.getElementById("visionPreview");
+  if (preview) preview.srcObject = null;
+  document.getElementById("captureVisionBtn")?.setAttribute("disabled", "");
+  document.getElementById("analyzeVisionBtn")?.setAttribute("disabled", "");
+  const overlay = document.getElementById("visionOverlay");
+  if (overlay) {
+    overlay.hidden = true;
+    overlay.setAttribute("aria-hidden", "true");
+  }
+}
+
+function captureVisionFrame() {
+  const preview = document.getElementById("visionPreview");
+  if (!preview?.videoWidth) return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = preview.videoWidth;
+  canvas.height = preview.videoHeight;
+  canvas.getContext("2d").drawImage(preview, 0, 0);
+  capturedVisionDataUrl = canvas.toDataURL("image/jpeg", 0.82);
+  document.getElementById("visionStatus").textContent =
+    "Frame captured. Ready for Nico.";
+  return capturedVisionDataUrl;
+}
+
+async function analyzeVisionFrame() {
+  const dataUrl = capturedVisionDataUrl || captureVisionFrame();
+  if (!dataUrl) return;
+  const blob = await (await fetch(dataUrl)).blob();
+  selectedAttachments.push({
+    file: new File([blob], "nico-screen-capture.jpg", { type: "image/jpeg" }),
+    kind: "images",
+    icon: "◉",
+    previewUrl: dataUrl,
+  });
+  stopVisionMode();
+  userInput.value =
+    "Describe what is visible on my screen and help me understand it.";
+  renderAttachments();
+  await sendMessage();
+}
+
+async function handleVisionVisibilityChange() {
+  const autoAnalyze = document.getElementById("visionAutoAnalyze")?.checked;
+  if (
+    !document.hidden ||
+    !visionStream ||
+    !autoAnalyze ||
+    visionAutoAnalyzeLock
+  ) {
+    return;
+  }
+  visionAutoAnalyzeLock = true;
+  try {
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    await analyzeVisionFrame();
+  } finally {
+    visionAutoAnalyzeLock = false;
+  }
+}
+
+document.addEventListener("visibilitychange", handleVisionVisibilityChange);
 
 async function apiFetch(url, options = {}) {
   const { allowGuest = false, ...fetchOptions } = options;
@@ -1367,6 +1475,21 @@ function initializeSettingsPanel() {
     "customBackgroundInput",
   );
   const clearBackgroundBtn = document.getElementById("clearBackgroundBtn");
+  document
+    .getElementById("openVisionBtn")
+    ?.addEventListener("click", startVisionMode);
+  document
+    .getElementById("closeVisionBtn")
+    ?.addEventListener("click", stopVisionMode);
+  document
+    .getElementById("stopVisionBtn")
+    ?.addEventListener("click", stopVisionMode);
+  document
+    .getElementById("captureVisionBtn")
+    ?.addEventListener("click", captureVisionFrame);
+  document
+    .getElementById("analyzeVisionBtn")
+    ?.addEventListener("click", analyzeVisionFrame);
   const controls = {
     personality: document.getElementById("personalitySetting"),
     length: document.getElementById("lengthSetting"),

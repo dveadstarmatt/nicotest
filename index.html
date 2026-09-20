@@ -75,6 +75,7 @@
                 <button class="settings-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="settings-personality" data-settings-tab="settings-personality">Personality</button>
                 <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-appearance" data-settings-tab="settings-appearance">Appearance</button>
                 <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-behavior" data-settings-tab="settings-behavior">Behavior</button>
+                <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-vision" data-settings-tab="settings-vision">Screen &amp; Vision</button>
                 <button class="settings-tab" type="button" role="tab" aria-selected="false" aria-controls="settings-account" data-settings-tab="settings-account">Account</button>
             </div>
             <div class="settings-scroll">
@@ -154,6 +155,13 @@
                     <label class="setting-toggle"><span>Use chat context</span><input id="contextSetting" type="checkbox" checked></label>
                     <label class="setting-toggle"><span>Sound effects</span><input id="soundSetting" type="checkbox"></label>
                 </section>
+                <section class="settings-tab-panel" id="settings-vision" role="tabpanel" hidden>
+                    <div class="vision-settings-intro">
+                        <span class="vision-orb">◉</span>
+                        <div><strong>Let Nico see your screen</strong><small>Capture only when you choose. Nothing is watched in the background.</small></div>
+                    </div>
+                    <button id="openVisionBtn" class="vision-launch-btn" type="button">Open screen reader</button>
+                </section>
                 <section class="settings-tab-panel" id="settings-account" role="tabpanel" hidden>
                     <div class="settings-auth-actions">
                         <button class="auth-btn" id="sign-in-btn" type="button">Sign in with Google</button>
@@ -165,6 +173,30 @@
                         <button id="clearContextBtn" type="button">Clear short-term context</button>
                     </div>
                 </section>
+            </div>
+        </section>
+
+        <section class="vision-overlay" id="visionOverlay" aria-hidden="true" hidden>
+            <div class="vision-frame">
+                <div class="vision-header">
+                    <div class="vision-title"><span class="vision-live-dot"></span><div><strong>Nico is watching</strong><small id="visionStatus">Screen sharing is active</small></div></div>
+                    <button id="closeVisionBtn" class="vision-close" type="button" aria-label="Stop screen reader">×</button>
+                </div>
+                <div class="vision-body">
+                    <div class="vision-preview-wrap">
+                        <video id="visionPreview" autoplay muted playsinline></video>
+                        <div class="vision-scan-line"></div>
+                        <div class="vision-corner corner-top-left"></div><div class="vision-corner corner-top-right"></div><div class="vision-corner corner-bottom-left"></div><div class="vision-corner corner-bottom-right"></div>
+                    </div>
+                    <aside class="vision-controls" aria-label="Screen sharing controls">
+                        <div class="vision-control-heading"><span class="vision-control-icon">◉</span><strong>Live view</strong><small>Share controls</small></div>
+                        <button id="captureVisionBtn" class="vision-control secondary" type="button" disabled><span>◌</span>Capture frame</button>
+                        <button id="analyzeVisionBtn" class="vision-control primary" type="button" disabled><span>✦</span>Ask Nico</button>
+                        <button id="stopVisionBtn" class="vision-control stop" type="button">Stop sharing</button>
+                        <label class="vision-auto-toggle"><input id="visionAutoAnalyze" type="checkbox"><span><strong>Auto-analyze on switch</strong><small>Capture and ask when you leave this tab.</small></span></label>
+                        <p class="vision-note">Your screen is sent only when you capture or analyze a frame.</p>
+                    </aside>
+                </div>
             </div>
         </section>
 
