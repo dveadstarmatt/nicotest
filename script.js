@@ -944,8 +944,6 @@ async function sendMessage() {
       );
     };
 
-    typingDelayTimer = setTimeout(triggerTypingFlow, 1400);
-
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
@@ -976,14 +974,7 @@ async function sendMessage() {
     }
 
     streamComplete = true;
-
-    if (!typingStarted) {
-      if (typingDelayTimer) {
-        clearTimeout(typingDelayTimer);
-        typingDelayTimer = null;
-      }
-      triggerTypingFlow();
-    }
+    typingDelayTimer = setTimeout(triggerTypingFlow, 1400);
 
     if (settings.sound) playCompletionChime();
     loadRecentConversations();
@@ -1000,10 +991,6 @@ async function sendMessage() {
       contentDiv.innerText = `Error: ${error.message || "Could not connect to Nico backend."}`;
     }
   } finally {
-    if (typingDelayTimer) {
-      clearTimeout(typingDelayTimer);
-      typingDelayTimer = null;
-    }
     currentAbortController = null;
     resetSendButton();
   }
