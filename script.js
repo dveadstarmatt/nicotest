@@ -535,7 +535,6 @@ function ensureTypingIndicator() {
     indicator = document.createElement("div");
     indicator.id = "typingIndicator";
     indicator.className = "message assistant typing";
-    indicator.style.display = "none";
     indicator.innerText = getAssistantThinkingLabel();
     chatBox.appendChild(indicator);
   }
@@ -546,6 +545,7 @@ function setThinkingIndicator(indicator, visible) {
   if (!indicator) return;
   indicator.innerText = getAssistantThinkingLabel();
   indicator.classList.toggle("is-visible", visible);
+  indicator.style.display = visible ? "block" : "none";
   indicator.setAttribute("aria-hidden", String(!visible));
 }
 
