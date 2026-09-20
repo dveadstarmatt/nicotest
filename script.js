@@ -672,6 +672,7 @@ function appendMessage(role, text, attachments = []) {
     msgDiv.appendChild(content);
   }
 
+  ensureTypingIndicator();
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
     chatBox.insertBefore(msgDiv, indicator);
@@ -903,6 +904,7 @@ async function sendMessage() {
   selectedAttachments = [];
   renderAttachments();
 
+  ensureTypingIndicator();
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
     setResponsePhase(indicator, null, "thinking");
@@ -967,6 +969,7 @@ async function sendMessage() {
         typingDelayTimer = null;
       }
       setResponsePhase(indicator, contentDiv, "typing");
+      indicator?.remove();
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
@@ -1011,6 +1014,7 @@ async function sendMessage() {
     }
     if (typewriterCleanup) typewriterCleanup();
     setResponsePhase(indicator, contentDiv, "error");
+    indicator?.remove();
     if (error.name === "AbortError") {
       contentDiv.innerHTML += " <i>[Generation stopped]</i>";
     } else {
