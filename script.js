@@ -549,6 +549,14 @@ function setThinkingIndicator(indicator, visible) {
   indicator.setAttribute("aria-hidden", String(!visible));
 }
 
+function setResponsePhase(indicator, contentDiv, phase) {
+  const isThinking = phase === "thinking";
+  setThinkingIndicator(indicator, isThinking);
+  if (contentDiv) {
+    contentDiv.style.visibility = isThinking ? "hidden" : "visible";
+  }
+}
+
 function startTypewriterReveal(
   contentDiv,
   getLatestText,
@@ -897,7 +905,7 @@ async function sendMessage() {
 
   const indicator = document.getElementById("typingIndicator");
   if (indicator) {
-    setThinkingIndicator(indicator, true);
+    setResponsePhase(indicator, null, "thinking");
     chatBox.appendChild(indicator);
   }
   chatBox.scrollTop = chatBox.scrollHeight;
@@ -958,7 +966,7 @@ async function sendMessage() {
         clearTimeout(typingDelayTimer);
         typingDelayTimer = null;
       }
-      setThinkingIndicator(indicator, false);
+      setResponsePhase(indicator, contentDiv, "typing");
       typewriterCleanup = startTypewriterReveal(
         contentDiv,
         () => accumulatedText,
@@ -973,10 +981,6 @@ async function sendMessage() {
       const chunk = decoder.decode(value, { stream: true });
       accumulatedText += chunk;
       sentenceBuffer += chunk;
-
-      if (typingStarted) {
-        setThinkingIndicator(indicator, false);
-      }
 
       chatBox.scrollTop = chatBox.scrollHeight;
 
@@ -1006,7 +1010,7 @@ async function sendMessage() {
       typingDelayTimer = null;
     }
     if (typewriterCleanup) typewriterCleanup();
-    setThinkingIndicator(indicator, false);
+    setResponsePhase(indicator, contentDiv, "error");
     if (error.name === "AbortError") {
       contentDiv.innerHTML += " <i>[Generation stopped]</i>";
     } else {
