@@ -780,6 +780,7 @@ function setPinnedConversation(id, pinned) {
 function closeConversationMenus() {
   document.querySelectorAll(".conversation-menu.is-open").forEach((menu) => {
     menu.classList.remove("is-open");
+    menu.hidden = true;
     menu.previousElementSibling?.setAttribute("aria-expanded", "false");
   });
 }
@@ -823,6 +824,7 @@ function createConversationMenu(item, conversation) {
 
   const menu = document.createElement("div");
   menu.className = "conversation-menu";
+  menu.hidden = true;
   menu.setAttribute("role", "menu");
 
   const addMenuItem = (label, icon, handler, danger = false) => {
@@ -861,6 +863,7 @@ function createConversationMenu(item, conversation) {
     const shouldOpen = !menu.classList.contains("is-open");
     closeConversationMenus();
     menu.classList.toggle("is-open", shouldOpen);
+    menu.hidden = !shouldOpen;
     trigger.setAttribute("aria-expanded", String(shouldOpen));
   });
   actions.addEventListener("click", (event) => event.stopPropagation());

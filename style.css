@@ -233,6 +233,10 @@ body::before {
     transform-origin: top right;
 }
 
+.conversation-menu[hidden] {
+    display: none !important;
+}
+
 .conversation-menu.is-open {
     display: grid;
     animation: conversation-menu-in 0.16s ease-out both;
