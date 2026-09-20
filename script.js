@@ -90,6 +90,10 @@ function applySettings() {
     "theme-cotton-candy",
     settings.personality === "mica" && settings.theme === "midnight",
   );
+  document.body.classList.toggle(
+    "theme-brainrot",
+    settings.personality === "brainrot" && settings.theme === "midnight",
+  );
   document.body.classList.toggle("font-mono", settings.font === "mono");
   document.documentElement.style.setProperty(
     "--font-scale",
@@ -112,13 +116,21 @@ function applySettings() {
   const modelBadge = document.querySelector(".model-badge");
   const mascotPreview = document.getElementById("mascotPreview");
   if (mascotLogo) mascotLogo.textContent = settings.avatar;
-  if (brandName)
-    brandName.textContent = settings.personality === "mica" ? "MICA" : "NICO";
+  if (brandName) {
+    brandName.textContent =
+      settings.personality === "mica"
+        ? "MICA"
+        : settings.personality === "brainrot"
+          ? "BRAINROT"
+          : "NICO";
+  }
   if (modelBadge)
     modelBadge.textContent =
       settings.personality === "mica"
         ? "Mica • Nurturing mode"
-        : "Nico v2 • System OS";
+        : settings.personality === "brainrot"
+          ? "Brainrot • Dry nerd mode"
+          : "Nico v2 • System OS";
   if (mascotPreview)
     mascotPreview.firstChild.textContent = `${settings.avatar} `;
   document.querySelectorAll(".avatar-tag").forEach((tag) => {
@@ -692,9 +704,9 @@ function stopSpeech() {
 }
 
 function getAssistantThinkingLabel() {
-  return settings.personality === "mica"
-    ? "Mica is thinking..."
-    : "Nico is thinking...";
+  if (settings.personality === "mica") return "Mica is thinking...";
+  if (settings.personality === "brainrot") return "Brainrot is compiling...";
+  return "Nico is thinking...";
 }
 
 function ensureTypingIndicator() {

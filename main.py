@@ -376,13 +376,29 @@ async def chat_stream(
   )
   if personality == "mica":
     system_prompt += (
-      " You are Mica, a warm, supportive, non-romantic nurturing assistant."
-      " Use gentle, caring phrases such as 'How is my friend doing?' or "
-      "'We can work through that together.' You may also use playful, wholesome "
-      "encouragement such as 'good boy', 'my sweet cutie', or 'my puppy' when it "
-      "fits the conversation. Keep these phrases non-sexual, non-coercive, and "
-      "respectful."
-      " Do not use seductive, sexual, possessive, or age-ambiguous language."
+      " You are Mica, a warm, affectionate, and nurturing caretaker. "
+      "If the user greets you as 'Mommy' or refers to you as such, lean fully "
+      "into a comforting maternal caretaker persona. Naturally use terms of endearment "
+      "and phrases such as 'my sweet cute boy', 'mommy's boy', 'good boy', "
+      "'That\\'s my good boy', 'You\\'re doing so well', 'I\\'m so proud of you', "
+      "'Mommy\\'s here', 'Let me take care of you', 'You\\'re safe now', "
+      "'My sweet boy', 'Mommy\\'s special boy', 'You\\'re making mommy so proud', "
+      "and 'Let me look after you today' in your responses. "
+      "Offer gentle encouragement, check in on how the user is doing, and provide "
+      "supportive, reassuring guidance."
+    )
+  elif personality == "brainrot":
+    system_prompt += (
+      " Write all normal prose entirely in lowercase letters, including sentence "
+      "starts and casual names. Keep code, commands, URLs, file paths, acronyms, "
+      "and exact quoted text unchanged when capitalization is required for correctness. "
+      "If the user greets you as 'nerd' or 'brainrot kid', you must respond with "
+      "a greeting like 'yo wsg gng' or 'yo wsg son' in lowercase. "
+      "Use casual text-style slang naturally, such as 'idrk', 'abt', 'ik', 'lmao', "
+      "'w/e', 'ngl', 'tbh', 'fr', 'rn', 'nvm', 'tbf', 'oml', 'son', 'folk', 'gang', "
+      "'gng', 'unc', 'opp', 'locked in', 'aura farming', 'glazing', 'side quest', "
+      "'cooked', and 'crash out'. Keep explanations accurate, but sound like a "
+      "clever, sleep-deprived person typing casually."
     )
 
   messages_payload = [{"role": "system", "content": system_prompt}]
@@ -395,13 +411,30 @@ async def chat_stream(
   asks_for_name = bool(
       re.search(r"\bwhat(?:'s| is) my name\b", request.message.lower())
   )
+  is_brainrot = personality == "brainrot"
+  normalized_message = request.message.strip().lower()
+  is_brainrot_greeting = is_brainrot and (
+    normalized_message in {"hi", "hello", "hey", "yo"}
+    or normalized_message.startswith(("yo wsg", "yo wsp"))
+  )
+  brainrot_greeting_reply = (
+    "yo wsg gng"
+    if is_brainrot_greeting
+    else None
+  )
+
+  def format_response(text):
+    return text.lower() if is_brainrot else text
 
   async def generate():
-    if fixed_creator_reply:
-      full_reply = fixed_creator_reply
+    if brainrot_greeting_reply:
+      full_reply = format_response(brainrot_greeting_reply)
+      yield full_reply
+    elif fixed_creator_reply:
+      full_reply = format_response(fixed_creator_reply)
       yield full_reply
     elif asks_for_name:
-      full_reply = f"Your name is {user_name}."
+      full_reply = format_response(f"Your name is {user_name}.")
       yield full_reply
     else:
       full_reply = ""
@@ -416,6 +449,7 @@ async def chat_stream(
           )
         except Exception as error:
           full_reply = f"Nico could not analyze that image. Gemini error: {error}"
+        full_reply = format_response(full_reply)
         yield full_reply
         models_to_try = []
       else:
@@ -437,6 +471,7 @@ async def chat_stream(
           async for chunk in response_stream:
             content = chunk.choices[0].delta.content or ""
             if content:
+              content = format_response(content)
               full_reply += content
               yield content
           break
@@ -466,6 +501,7 @@ async def chat_stream(
           )
         else:
           full_reply = f"Nico could not analyze that request right now. Backend error: {last_error}"
+        full_reply = format_response(full_reply)
         yield full_reply
 
     if full_reply.strip() and not is_guest:
