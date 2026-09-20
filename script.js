@@ -102,6 +102,8 @@ function applySettings() {
   document.querySelectorAll(".avatar-tag").forEach((tag) => {
     tag.textContent = settings.avatar;
   });
+  const typingIndicator = document.getElementById("typingIndicator");
+  if (typingIndicator) typingIndicator.innerText = getAssistantThinkingLabel();
 }
 
 async function apiFetch(url, options = {}) {
@@ -545,9 +547,15 @@ function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
 
   let displayedText = "";
   let writerTimer = null;
+  contentDiv.style.visibility = "hidden";
 
   const renderNextCharacter = () => {
     const latestText = getLatestText() || "";
+
+    if (!latestText) {
+      writerTimer = setTimeout(renderNextCharacter, 50);
+      return;
+    }
 
     if (latestText.length <= displayedText.length) {
       if (typeof marked !== "undefined") {
@@ -555,6 +563,7 @@ function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
       } else {
         contentDiv.textContent = latestText;
       }
+      contentDiv.style.visibility = "visible";
       attachCodeCopyButtons(contentDiv.closest(".message"));
       if (typeof onComplete === "function") onComplete();
       return;
@@ -562,6 +571,7 @@ function startTypewriterReveal(contentDiv, getLatestText, onComplete) {
 
     displayedText = latestText.slice(0, displayedText.length + 1);
     contentDiv.textContent = displayedText;
+    contentDiv.style.visibility = "visible";
     writerTimer = setTimeout(renderNextCharacter, 18);
   };
 
@@ -869,6 +879,7 @@ async function sendMessage() {
   assistantMsgDiv.className = "message assistant";
   assistantMsgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content"></div>`;
   const contentDiv = assistantMsgDiv.querySelector(".content");
+  contentDiv.style.visibility = "hidden";
 
   if (indicator) {
     chatBox.insertBefore(assistantMsgDiv, indicator);
