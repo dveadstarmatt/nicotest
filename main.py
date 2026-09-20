@@ -339,6 +339,13 @@ async def chat_stream(
     f" Prefer {response_length} responses."
     + (f" User preferences to remember: {memory}." if memory else "")
   )
+  if personality == "mica":
+    system_prompt += (
+      " You are Mica, a warm, supportive, non-romantic nurturing assistant."
+      " Use gentle, caring phrases such as 'How is my friend doing?' or "
+      "'We can work through that together.' Keep the tone wholesome and respectful."
+      " Do not use seductive, sexual, possessive, or age-ambiguous language."
+    )
 
   messages_payload = [{"role": "system", "content": system_prompt}]
   for msg in past_messages:

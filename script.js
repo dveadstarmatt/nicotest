@@ -75,6 +75,10 @@ function applySettings() {
     settings.theme === "cyberpunk",
   );
   document.body.classList.toggle("theme-sunset", settings.theme === "sunset");
+  document.body.classList.toggle(
+    "theme-cotton-candy",
+    settings.personality === "mica",
+  );
   document.body.classList.toggle("font-mono", settings.font === "mono");
   document.documentElement.style.setProperty(
     "--font-scale",
@@ -82,8 +86,17 @@ function applySettings() {
   );
   document.documentElement.style.fontSize = `${settings.fontScale}%`;
   const mascotLogo = document.getElementById("mascotLogo");
+  const brandName = document.getElementById("brandName");
+  const modelBadge = document.querySelector(".model-badge");
   const mascotPreview = document.getElementById("mascotPreview");
   if (mascotLogo) mascotLogo.textContent = settings.avatar;
+  if (brandName)
+    brandName.textContent = settings.personality === "mica" ? "MICA" : "NICO";
+  if (modelBadge)
+    modelBadge.textContent =
+      settings.personality === "mica"
+        ? "Mica • Nurturing mode"
+        : "Nico v2 • System OS";
   if (mascotPreview)
     mascotPreview.firstChild.textContent = `${settings.avatar} `;
   document.querySelectorAll(".avatar-tag").forEach((tag) => {

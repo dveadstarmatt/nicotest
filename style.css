@@ -32,6 +32,7 @@ body {
 
 body.theme-cyberpunk { --accent: #00f5d4; --accent-glow: rgba(0, 245, 212, 0.22); }
 body.theme-sunset { --accent: #ff9f68; --accent-glow: rgba(255, 159, 104, 0.22); }
+body.theme-cotton-candy { --bg-main: #190f1b; --bg-accent: #241326; --accent: #ff9fd7; --accent-glow: rgba(255, 159, 215, 0.24); --glass-bg-hover: rgba(255, 159, 215, 0.12); --glass-bg-active: rgba(255, 159, 215, 0.18); }
 body.theme-light { --bg-main: #eef2f7; --bg-accent: #ffffff; --text-primary: #1c2430; --text-muted: rgba(28, 36, 48, 0.58); --glass-bg: rgba(255, 255, 255, 0.7); --glass-bg-hover: rgba(255, 255, 255, 0.92); --glass-bg-active: rgba(20, 30, 45, 0.12); }
 body.font-mono, body.font-mono button, body.font-mono input, body.font-mono select, body.font-mono textarea { font-family: "Courier New", monospace; }
 
