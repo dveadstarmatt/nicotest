@@ -671,17 +671,13 @@ button.export-btn:hover {
 }
 
 
-.typing {
+.thinking-indicator {
     align-self: flex-start;
     background: transparent;
     border: none;
     color: var(--text-muted);
     font-style: italic;
     display: none;
-}
-
-.typing.is-visible {
-    display: block;
 }
 
 /* Code Copy Button */

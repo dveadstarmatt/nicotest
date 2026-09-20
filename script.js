@@ -534,7 +534,7 @@ function ensureTypingIndicator() {
   if (!indicator) {
     indicator = document.createElement("div");
     indicator.id = "typingIndicator";
-    indicator.className = "message assistant typing";
+    indicator.className = "message assistant thinking-indicator";
     indicator.innerText = getAssistantThinkingLabel();
     chatBox.appendChild(indicator);
   }
