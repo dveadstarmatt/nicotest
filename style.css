@@ -650,6 +650,12 @@ button.export-btn:hover {
     will-change: transform, opacity;
 }
 
+.app-layout.guest-mode .welcome-container,
+.app-layout.logged-in-mode .welcome-container,
+.app-layout.new-chat-mode .welcome-container {
+    padding: clamp(9vh, 12vh, 15vh) 28px 10vh;
+}
+
 .welcome-title {
     font-size: clamp(2.5rem, 4vw, 4rem);
     font-weight: 700;
@@ -1150,7 +1156,9 @@ button.export-btn:hover {
     font-size: 0.85rem;
 }
 
-.app-layout.new-chat-mode .input-wrapper {
+.app-layout.new-chat-mode .input-wrapper,
+.app-layout.guest-mode .input-wrapper,
+.app-layout.logged-in-mode .input-wrapper {
     position: absolute;
     left: 50%;
     bottom: 18px;
