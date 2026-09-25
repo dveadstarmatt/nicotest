@@ -434,6 +434,7 @@ body::before {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: flex-start;
     position: relative;
     height: 100vh;
     width: 100%;
@@ -642,10 +643,11 @@ button.export-btn:hover {
     align-items: center;
     justify-content: center;
     text-align: center;
-    width: 100%;
+    width: min(100%, 820px);
     max-width: 820px;
     margin: 0 auto;
-    padding: clamp(9vh, 12vh, 15vh) 28px 10vh;
+    min-height: calc(100vh - 190px);
+    padding: 0 28px;
     transform: translate3d(0, 0, 0);
     will-change: transform, opacity;
 }
@@ -653,7 +655,8 @@ button.export-btn:hover {
 .app-layout.guest-mode .welcome-container,
 .app-layout.logged-in-mode .welcome-container,
 .app-layout.new-chat-mode .welcome-container {
-    padding: clamp(9vh, 12vh, 15vh) 28px 10vh;
+    min-height: calc(100vh - 190px);
+    padding: 0 28px;
 }
 
 .welcome-title {
@@ -702,8 +705,9 @@ button.export-btn:hover {
 }
 
 .chat-container {
-    flex: 1;
+    flex: 1 1 auto;
     width: min(100%, 860px);
+    min-height: calc(100vh - 110px);
     display: flex;
     flex-direction: column;
     align-items: center;
