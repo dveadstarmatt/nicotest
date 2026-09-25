@@ -645,9 +645,17 @@ button.export-btn:hover {
     width: 100%;
     max-width: 820px;
     margin: 0 auto;
-    padding: clamp(30vh, 18vh, 25vh) 28px 8vh;
+    padding: clamp(9vh, 12vh, 15vh) 28px 10vh;
     transform: translate3d(0, 0, 0);
     will-change: transform, opacity;
+}
+
+.app-layout.guest-mode .welcome-container {
+    padding: clamp(30vh, 18vh, 22vh) 28px 8vh;
+}
+
+.app-layout.logged-in-mode .welcome-container {
+    padding: clamp(9vh, 12vh, 15vh) 28px 10vh;
 }
 
 .welcome-title {
@@ -1127,7 +1135,15 @@ button.export-btn:hover {
     width: min(100%, 760px);
     min-height: 0;
     margin: auto;
-    padding: 0 24px;
+    padding: clamp(9vh, 12vh, 15vh) 24px 8vh;
+}
+
+.app-layout.guest-mode.new-chat-mode .welcome-container {
+    padding: clamp(15vh, 19vh, 24vh) 24px 8vh;
+}
+
+.app-layout.logged-in-mode.new-chat-mode .welcome-container {
+    padding: clamp(9vh, 12vh, 15vh) 24px 8vh;
 }
 
 .app-layout.new-chat-mode .chat-box {
@@ -1154,9 +1170,17 @@ button.export-btn:hover {
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, 80%);
+    transform: translate(-50%, 50%);
     width: 100%;
     max-width: 760px;
+}
+
+.app-layout.guest-mode.new-chat-mode .input-wrapper {
+    transform: translate(-50%, 88%);
+}
+
+.app-layout.logged-in-mode.new-chat-mode .input-wrapper {
+    transform: translate(-50%, 26%);
 }
 
 

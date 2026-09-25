@@ -1605,6 +1605,9 @@ function updateAuthUi(user) {
   const signInButton = document.getElementById("sign-in-btn");
   const signOutButton = document.getElementById("sign-out-btn");
 
+  appLayout?.classList.toggle("guest-mode", !user);
+  appLayout?.classList.toggle("logged-in-mode", !!user);
+
   currentUser = user;
   if (!user) {
     authUiInitialized = false;
