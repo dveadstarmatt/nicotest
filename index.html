@@ -57,10 +57,12 @@
     <main class="main-content">
         <header class="top-header">
             <button class="mobile-menu-btn" id="menu-toggle" type="button" aria-label="Toggle menu" aria-controls="sidebar" aria-expanded="false">☰</button>
-            <button id="exportBtn" class="export-btn" onclick="exportChat()" title="Export Chat History">
-                ⬇ Export Chat
-            </button>
-            <span class="model-badge">Nico v2 • System OS</span>
+            <div class="top-header-actions">
+                <button id="exportBtn" class="export-btn" onclick="exportChat()" title="Export Chat History">
+                    ⬇ Export Chat
+                </button>
+                <span class="model-badge">Nico v2 • System OS</span>
+            </div>
         </header>
 
         <section class="settings-panel" id="settingsPanel" aria-hidden="true">
