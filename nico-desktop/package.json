@@ -1,0 +1,20 @@
+{
+  "name": "nico-desktop",
+  "version": "1.0.0",
+  "description": "Desktop wrapper for Nico",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --check main.js"
+  },
+  "keywords": [
+    "nico",
+    "electron",
+    "desktop"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.3.3"
+  }
+}

@@ -14,8 +14,11 @@ let selectedAttachments = [];
 const configuredApiUrl = document
   .querySelector('meta[name="nico-api-url"]')
   ?.content.trim();
-const apiBaseUrl =
-  configuredApiUrl || `http://${window.location.hostname || "127.0.0.1"}:8000`;
+const host = window.location.hostname || "";
+const isLocalHost = host === "" || host === "localhost" || host === "127.0.0.1";
+const apiBaseUrl = isLocalHost
+  ? "http://127.0.0.1:8000"
+  : configuredApiUrl || "https://nicotest-1.onrender.com";
 const supabaseUrl = document.querySelector(
   'meta[name="supabase-url"]',
 )?.content;
@@ -39,6 +42,7 @@ let currentUser = null;
 let authUiInitialized = false;
 let conversationLoadToken = 0;
 const settingsStorageKey = "nico_settings";
+const developerModeStorageKey = "nico_developer_mode";
 const defaultSettings = {
   personality: "professional",
   length: "short",
@@ -55,6 +59,11 @@ const defaultSettings = {
   customBackgroundImage: "",
 };
 let settings = { ...defaultSettings };
+
+function syncDeveloperModePreference() {
+  const value = settings.personality === "developer" ? "1" : "0";
+  localStorage.setItem(developerModeStorageKey, value);
+}
 let visionStream = null;
 let capturedVisionDataUrl = "";
 let visionAutoAnalyzeLock = false;
@@ -64,12 +73,16 @@ try {
     ...defaultSettings,
     ...JSON.parse(localStorage.getItem(settingsStorageKey) || "{}"),
   };
+  if (localStorage.getItem(developerModeStorageKey) === "1") {
+    settings.personality = "developer";
+  }
 } catch {
   settings = { ...defaultSettings };
 }
 
 function saveSettings() {
   localStorage.setItem(settingsStorageKey, JSON.stringify(settings));
+  syncDeveloperModePreference();
 }
 
 function applySettings() {
@@ -130,7 +143,9 @@ function applySettings() {
         ? "Mica • Nurturing mode"
         : settings.personality === "brainrot"
           ? "Brainrot • Dry nerd mode"
-          : "Nico v2 • System OS";
+          : settings.personality === "developer"
+            ? "Developer • Matt Andrei"
+            : "Nico v2 • System OS";
   if (mascotPreview)
     mascotPreview.firstChild.textContent = `${settings.avatar} `;
   document.querySelectorAll(".avatar-tag").forEach((tag) => {
@@ -280,24 +295,95 @@ async function apiFetch(url, options = {}) {
   const { allowGuest = false, ...fetchOptions } = options;
   const headers = new Headers(fetchOptions.headers || {});
 
-  if (!authClient) {
-    if (!allowGuest)
-      throw new Error("Supabase authentication is not configured");
+  const demoToken = localStorage.getItem("nico_demo_auth_token");
+  if (demoToken) {
+    headers.set("Authorization", `Bearer ${demoToken}`);
     return fetch(url, { ...fetchOptions, headers });
   }
 
-  const { data } = await authClient.auth.getSession();
-  if (!data.session) {
-    if (!allowGuest) throw new Error("Sign-in required");
+  if (authClient) {
+    const { data } = await authClient.auth.getSession();
+    if (!data.session) {
+      if (!allowGuest) throw new Error("Sign-in required");
+      return fetch(url, { ...fetchOptions, headers });
+    }
+
+    headers.set("Authorization", `Bearer ${data.session.access_token}`);
     return fetch(url, { ...fetchOptions, headers });
   }
 
-  headers.set("Authorization", `Bearer ${data.session.access_token}`);
+  if (!allowGuest) throw new Error("Sign-in required");
   return fetch(url, { ...fetchOptions, headers });
 }
 
 function conversationStorageKey() {
   return currentUser ? `active_chat_id:${currentUser.id}` : "active_chat_id";
+}
+
+function localConversationListKey() {
+  return currentUser
+    ? `nico_local_conversations:${currentUser.id}`
+    : "nico_local_conversations:guest";
+}
+
+function localConversationMessagesKey(conversationId = currentConversationId) {
+  return `nico_local_messages:${conversationId}`;
+}
+
+function readLocalConversationList() {
+  try {
+    return JSON.parse(localStorage.getItem(localConversationListKey()) || "[]");
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalConversationList(list) {
+  localStorage.setItem(
+    localConversationListKey(),
+    JSON.stringify(list.slice(0, 50)),
+  );
+}
+
+function upsertLocalConversation(conversation) {
+  const list = readLocalConversationList();
+  const next = { ...conversation, updated_at: new Date().toISOString() };
+  const index = list.findIndex((item) => item.id === next.id);
+  if (index >= 0) {
+    list[index] = { ...list[index], ...next };
+  } else {
+    list.unshift(next);
+  }
+  writeLocalConversationList(list);
+}
+
+function readLocalConversationMessages(conversationId = currentConversationId) {
+  try {
+    return JSON.parse(
+      localStorage.getItem(localConversationMessagesKey(conversationId)) ||
+        "[]",
+    );
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalConversationMessages(conversationId, messages) {
+  localStorage.setItem(
+    localConversationMessagesKey(conversationId),
+    JSON.stringify(messages.slice(-200)),
+  );
+}
+
+function appendLocalConversationMessage(conversationId, role, content) {
+  const messages = readLocalConversationMessages(conversationId);
+  messages.push({
+    role,
+    content,
+    created_at: new Date().toISOString(),
+    conversation_id: conversationId,
+  });
+  writeLocalConversationMessages(conversationId, messages);
 }
 
 function persistCurrentConversationId() {
@@ -706,6 +792,8 @@ function stopSpeech() {
 function getAssistantThinkingLabel() {
   if (settings.personality === "mica") return "Mica is thinking...";
   if (settings.personality === "brainrot") return "Brainrot is compiling...";
+  if (settings.personality === "developer")
+    return "Developer mode is active...";
   return "Nico is thinking...";
 }
 
@@ -902,11 +990,25 @@ async function renameConversation(id, oldTitle, e) {
   const newTitle = prompt("Enter new title:", oldTitle);
   if (!newTitle || newTitle.trim() === "") return;
 
+  const nextTitle = newTitle.trim();
+
+  if (!authClient && currentUser) {
+    const list = readLocalConversationList();
+    const updated = list.map((conv) =>
+      conv.id === id
+        ? { ...conv, title: nextTitle, updated_at: new Date().toISOString() }
+        : conv,
+    );
+    writeLocalConversationList(updated);
+    loadRecentConversations();
+    return;
+  }
+
   try {
     await apiFetch(`${apiBaseUrl}/conversations/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: newTitle.trim() }),
+      body: JSON.stringify({ title: nextTitle }),
     });
     loadRecentConversations();
   } catch (err) {
@@ -917,6 +1019,18 @@ async function renameConversation(id, oldTitle, e) {
 async function deleteConversation(id, e) {
   e.stopPropagation();
   if (!confirm("Delete this conversation?")) return;
+
+  if (!authClient && currentUser) {
+    const list = readLocalConversationList().filter((conv) => conv.id !== id);
+    writeLocalConversationList(list);
+    localStorage.removeItem(localConversationMessagesKey(id));
+    if (id === currentConversationId) {
+      startNewChat();
+    } else {
+      loadRecentConversations();
+    }
+    return;
+  }
 
   try {
     await apiFetch(`${apiBaseUrl}/conversations/${id}`, {
@@ -1042,18 +1156,52 @@ function createConversationMenu(item, conversation) {
 }
 
 async function loadRecentConversations() {
+  const recentsList = document.getElementById("recent-chats");
+  if (!recentsList) return;
+
   try {
-    if (!authClient) {
-      const recentsList = document.getElementById("recent-chats");
-      if (recentsList) recentsList.innerHTML = "";
+    if (!authClient && !currentUser) {
+      recentsList.innerHTML = "";
+      return;
+    }
+
+    if (!authClient && currentUser) {
+      const conversations = readLocalConversationList();
+      recentsList.innerHTML = "";
+      const pinnedIds = getPinnedConversationIds();
+      conversations
+        .slice()
+        .sort(
+          (left, right) =>
+            pinnedIds.indexOf(right.id) - pinnedIds.indexOf(left.id),
+        )
+        .forEach((conv) => {
+          const item = document.createElement("div");
+          item.className = "recent-item";
+          item.dataset.conversationId = conv.id;
+          if (conv.id === currentConversationId) item.classList.add("active");
+
+          const titleWrap = document.createElement("span");
+          titleWrap.className = "recent-title-wrap";
+          const titleSpan = document.createElement("span");
+          titleSpan.className = "recent-title";
+          titleSpan.innerText = conv.title || "Untitled Chat";
+          titleWrap.appendChild(titleSpan);
+          item.appendChild(titleWrap);
+          createConversationMenu(item, conv);
+
+          item.addEventListener("click", (event) => {
+            if (!event.target.closest(".conversation-actions")) {
+              switchConversation(conv.id);
+            }
+          });
+          recentsList.appendChild(item);
+        });
       return;
     }
 
     const response = await apiFetch(`${apiBaseUrl}/conversations`);
     const conversations = await response.json();
-
-    const recentsList = document.getElementById("recent-chats");
-    if (!recentsList) return;
     recentsList.innerHTML = "";
 
     const pinnedIds = getPinnedConversationIds();
@@ -1104,6 +1252,23 @@ async function loadMessages() {
   const loadToken = ++conversationLoadToken;
   const conversationId = currentConversationId;
   try {
+    if (!authClient && currentUser) {
+      const data = readLocalConversationMessages(conversationId);
+      if (
+        loadToken !== conversationLoadToken ||
+        conversationId !== currentConversationId
+      ) {
+        return;
+      }
+      clearChatBox();
+      if (Array.isArray(data)) {
+        data.forEach((msg) => {
+          appendMessage(msg.role, msg.content, []);
+        });
+      }
+      return;
+    }
+
     if (!authClient) {
       clearChatBox();
       return;
@@ -1193,6 +1358,18 @@ async function sendMessage() {
   appendMessage("user", displayMessage, attachmentRequest.attachments);
   if (currentUser) {
     await saveConversationAttachments(attachmentRequest.attachments);
+    if (!authClient) {
+      upsertLocalConversation({
+        id: currentConversationId,
+        title: "Untitled Chat",
+        user_id: currentUser.id,
+      });
+      appendLocalConversationMessage(
+        currentConversationId,
+        "user",
+        displayMessage,
+      );
+    }
   }
   userInput.value = "";
   selectedAttachments = [];
@@ -1299,6 +1476,19 @@ async function sendMessage() {
 
     streamComplete = true;
     typingDelayTimer = setTimeout(triggerTypingFlow, 1400);
+
+    if (!authClient && currentUser) {
+      appendLocalConversationMessage(
+        currentConversationId,
+        "assistant",
+        accumulatedText,
+      );
+      upsertLocalConversation({
+        id: currentConversationId,
+        title: "Untitled Chat",
+        user_id: currentUser.id,
+      });
+    }
 
     if (settings.sound) playCompletionChime();
     loadRecentConversations();
@@ -1524,6 +1714,9 @@ function initializeSettingsPanel() {
       settings[key] =
         control.type === "checkbox" ? control.checked : control.value;
       if (key === "fontScale") settings.fontScale = Number(control.value);
+      if (key === "personality") {
+        syncDeveloperModePreference();
+      }
       saveSettings();
       applySettings();
     });
@@ -1597,6 +1790,65 @@ function initializeSettingsPanel() {
   applySettings();
 }
 
+function setAuthScreenVisible(visible) {
+  const authScreen = document.getElementById("authScreen");
+  const appView = document.querySelector(".app-layout");
+
+  if (authScreen) authScreen.classList.toggle("is-visible", visible);
+  if (appView) appView.classList.toggle("auth-visible", visible);
+}
+
+function finishDemoSignIn(username, token = null) {
+  const safeUsername = (username || "User").trim();
+  const displayName = safeUsername.includes("@")
+    ? safeUsername.split("@")[0]
+    : safeUsername || "User";
+
+  const demoUser = {
+    id: `demo-${Date.now()}`,
+    email: safeUsername.includes("@")
+      ? safeUsername
+      : `${safeUsername}@nico.local`,
+    user_metadata: {
+      full_name: displayName,
+      name: displayName,
+    },
+  };
+
+  if (token) {
+    localStorage.setItem("nico_demo_auth_token", token);
+    localStorage.setItem("nico_demo_user", JSON.stringify(demoUser));
+  } else {
+    localStorage.setItem("nico_demo_auth_token", "demo-local");
+    localStorage.setItem("nico_demo_user", JSON.stringify(demoUser));
+  }
+
+  updateAuthUi(demoUser);
+}
+
+function isReservedDeveloperCredentials(value, password) {
+  const normalized = (value || "").trim().toLowerCase();
+  return (
+    (normalized === "admin" || normalized === "admin@nico.local") &&
+    String(password || "") === "nicodeveloping"
+  );
+}
+
+function isDeveloperAccountUser(user) {
+  if (!user) return false;
+  const email = (user.email || "").toLowerCase();
+  const role = (user.user_metadata?.role || "").toLowerCase();
+  return email === "admin@nico.local" || role === "developer";
+}
+
+function setDeveloperDashboardVisibility(user) {
+  const dashboardButton = document.getElementById("openAdminDashboardBtn");
+  if (!dashboardButton) return;
+  const visible = isDeveloperAccountUser(user);
+  dashboardButton.hidden = !visible;
+  dashboardButton.disabled = !visible;
+}
+
 function updateAuthUi(user) {
   const userName = document.getElementById("user-name");
   const welcomeName = document.getElementById("welcomeName");
@@ -1604,12 +1856,15 @@ function updateAuthUi(user) {
   const userStatus = document.getElementById("user-status");
   const signInButton = document.getElementById("sign-in-btn");
   const signOutButton = document.getElementById("sign-out-btn");
+  const developerBadge = document.getElementById("developerBadge");
+  const ownerBadge = document.getElementById("ownerBadge");
 
   appLayout?.classList.toggle("guest-mode", !user);
   appLayout?.classList.toggle("logged-in-mode", !!user);
 
   currentUser = user;
   if (!user) {
+    setAuthScreenVisible(true);
     authUiInitialized = false;
     userName.textContent = "Not signed in";
     if (welcomeName) welcomeName.textContent = "User";
@@ -1629,20 +1884,42 @@ function updateAuthUi(user) {
       document.getElementById("typingIndicator").innerText =
         getAssistantThinkingLabel();
     }
+    setDeveloperDashboardVisibility(null);
     return;
   }
+
+  if (user.id && user.id.startsWith("demo-")) {
+    localStorage.setItem("nico_demo_user", JSON.stringify(user));
+  }
+
+  setAuthScreenVisible(false);
 
   const displayName =
     user.user_metadata?.full_name ||
     user.user_metadata?.name ||
     user.email?.split("@")[0] ||
     "User";
-  userName.textContent = displayName;
-  if (welcomeName) welcomeName.textContent = displayName;
-  userAvatar.textContent = displayName.charAt(0).toUpperCase();
-  userStatus.textContent = "Online";
+  const isDeveloper = isDeveloperAccountUser(user);
+  const developerLabel = isDeveloper ? "Matt Andrei" : displayName;
+  userName.textContent = isDeveloper ? "Matt Andrei" : displayName;
+  if (welcomeName) welcomeName.textContent = developerLabel;
+  userAvatar.textContent = isDeveloper
+    ? "M"
+    : displayName.charAt(0).toUpperCase();
+  userStatus.textContent = isDeveloper
+    ? "Developer account • Matt Andrei"
+    : "Online";
+  if (developerBadge) {
+    developerBadge.hidden = !isDeveloper;
+    developerBadge.textContent = "Developer";
+  }
+  if (ownerBadge) {
+    ownerBadge.hidden = !isDeveloper;
+    ownerBadge.textContent = "Owner";
+  }
   signInButton.hidden = true;
   signOutButton.hidden = false;
+  setDeveloperDashboardVisibility(user);
 
   if (!authUiInitialized) {
     const savedUserConversationId = localStorage.getItem(
@@ -1658,6 +1935,159 @@ function updateAuthUi(user) {
   loadRecentConversations();
 }
 
+async function submitDemoAuth(action = "login", username, password) {
+  const endpoint = action === "signup" ? "/auth/signup" : "/auth/login";
+  const response = await fetch(`${apiBaseUrl}${endpoint}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username_or_email: username, password }),
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail || "Authentication failed");
+  }
+
+  const demoUser = payload.user || {};
+  const token = payload.token || null;
+  if (token) {
+    localStorage.setItem("nico_demo_auth_token", token);
+    localStorage.setItem("nico_demo_user", JSON.stringify(demoUser));
+  }
+  updateAuthUi(demoUser);
+  return demoUser;
+}
+
+function initializeAuthScreen() {
+  const form = document.getElementById("authForm");
+  const usernameInput = document.getElementById("authUsername");
+  const passwordInput = document.getElementById("authPassword");
+  const passwordToggle = document.getElementById("authPasswordToggle");
+  const submitButton = document.getElementById("authSubmitBtn");
+  const createAccountLink = document.getElementById("createAccountLink");
+  const googleButton = document.getElementById("authGoogleBtn");
+  const appleButton = document.getElementById("authAppleBtn");
+
+  if (!form || !usernameInput || !passwordInput) return;
+
+  passwordToggle?.addEventListener("click", () => {
+    const willShow = passwordInput.type === "password";
+    passwordInput.type = willShow ? "text" : "password";
+    passwordToggle.setAttribute("aria-pressed", String(willShow));
+    passwordToggle.setAttribute(
+      "aria-label",
+      willShow ? "Hide password" : "Show password",
+    );
+    passwordToggle.title = willShow ? "Hide password" : "Show password";
+    const icon = passwordToggle.querySelector("span");
+    if (icon) {
+      icon.textContent = willShow ? "🙈" : "👁";
+    }
+    passwordInput.focus();
+  });
+
+  let authMode = "login";
+
+  const setAuthMode = (mode) => {
+    authMode = mode;
+    if (submitButton) {
+      submitButton.textContent =
+        mode === "signup" ? "Create account" : "Sign in";
+    }
+    if (createAccountLink) {
+      createAccountLink.textContent =
+        mode === "signup"
+          ? "Already have an account? Sign in"
+          : "Create an account";
+    }
+  };
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const value = usernameInput.value.trim();
+    const password = passwordInput.value.trim();
+
+    if (!value || !password) {
+      passwordInput.focus();
+      return;
+    }
+
+    const reservedDeveloperLogin = isReservedDeveloperCredentials(
+      value,
+      password,
+    );
+
+    try {
+      if (submitButton) submitButton.disabled = true;
+      submitButton.textContent =
+        authMode === "signup" ? "Creating account..." : "Signing in...";
+
+      if (reservedDeveloperLogin) {
+        await submitDemoAuth("login", "admin", "nicodeveloping");
+        form.reset();
+        return;
+      }
+
+      if (authClient) {
+        const email = value.includes("@") ? value : `${value}@nico.local`;
+        const result =
+          authMode === "signup"
+            ? await authClient.auth.signUp({
+                email,
+                password,
+                options: {
+                  data: {
+                    full_name: value.split("@", 1)[0] || "User",
+                    name: value.split("@", 1)[0] || "User",
+                  },
+                },
+              })
+            : await authClient.auth.signInWithPassword({ email, password });
+
+        if (result.error) {
+          throw new Error(result.error.message || "Authentication failed");
+        }
+
+        const user = result.data?.user || result.data?.session?.user || null;
+        if (user) {
+          updateAuthUi(user);
+          form.reset();
+        }
+      } else {
+        await submitDemoAuth(authMode, value, password);
+        form.reset();
+      }
+    } catch (error) {
+      alert(error.message || "Authentication failed");
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.textContent =
+          authMode === "signup" ? "Create account" : "Sign in";
+      }
+    }
+  });
+
+  createAccountLink?.addEventListener("click", (event) => {
+    event.preventDefault();
+    setAuthMode(authMode === "login" ? "signup" : "login");
+  });
+
+  setAuthMode("login");
+
+  googleButton?.addEventListener("click", () => {
+    if (authClient) {
+      signInWithGoogle();
+      return;
+    }
+    finishDemoSignIn("Nico User");
+  });
+
+  appleButton?.addEventListener("click", () => {
+    finishDemoSignIn("Apple User");
+  });
+}
+
 async function signInWithGoogle() {
   if (!authClient) {
     alert("Supabase authentication is not configured yet.");
@@ -1671,6 +2101,19 @@ async function signInWithGoogle() {
 }
 
 async function initializeAuth() {
+  const storedDemoUser = localStorage.getItem("nico_demo_user");
+  const storedDemoToken = localStorage.getItem("nico_demo_auth_token");
+
+  if (storedDemoToken && storedDemoUser) {
+    try {
+      const parsedUser = JSON.parse(storedDemoUser);
+      updateAuthUi(parsedUser);
+      return;
+    } catch {
+      localStorage.removeItem("nico_demo_user");
+    }
+  }
+
   if (!authClient) {
     updateAuthUi(null);
     return;
@@ -1690,6 +2133,88 @@ async function initializeAuth() {
   updateAuthUi(data.session?.user || null);
 }
 
+async function openDeveloperDashboard() {
+  const panel = document.getElementById("adminDashboardPanel");
+  const content = document.getElementById("adminDashboardContent");
+  if (!panel || !content) return;
+
+  try {
+    const response = await apiFetch(`${apiBaseUrl}/admin/overview`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.detail || "Admin access required");
+    }
+    const data = await response.json();
+    const renderStatus = data.render?.status || "not_configured";
+    const supabaseStatus = data.supabase?.status || "not_configured";
+    const appStatus = data.status || "ok";
+
+    content.innerHTML = `
+      <div class="admin-dashboard-grid">
+        <div class="admin-card ${appStatus === "ok" ? "status-ok" : "status-bad"}">
+          <small>App status</small>
+          <strong>${appStatus === "ok" ? "Online" : "Warning"}</strong>
+        </div>
+        <div class="admin-card ${renderStatus === "ok" || renderStatus === "online" ? "status-ok" : "status-bad"}">
+          <small>Render</small>
+          <strong>${renderStatus}</strong>
+        </div>
+        <div class="admin-card ${supabaseStatus === "ok" ? "status-ok" : "status-bad"}">
+          <small>Supabase</small>
+          <strong>${supabaseStatus}</strong>
+        </div>
+        <div class="admin-card status-ok">
+          <small>Service URL</small>
+          <strong>${data.app?.service_url || "n/a"}</strong>
+        </div>
+      </div>
+      <div class="admin-section">
+        <h3>Environment</h3>
+        <div class="admin-log-list">
+          <div class="admin-log-item"><time>Render</time>${data.render?.enabled ? "Enabled" : "Not configured"}</div>
+          <div class="admin-log-item"><time>Supabase</time>${data.supabase?.enabled ? "Connected" : "Not configured"}</div>
+          <div class="admin-log-item"><time>Groq</time>${data.services?.groq ? "Configured" : "Missing"}</div>
+          <div class="admin-log-item"><time>Gemini</time>${data.services?.gemini ? "Configured" : "Missing"}</div>
+        </div>
+      </div>
+      <div class="admin-section">
+        <h3>Recent logs</h3>
+        <div class="admin-log-list">
+          ${
+            (data.logs || [])
+              .map(
+                (item) => `
+            <div class="admin-log-item"><time>${item.time}</time>${item.message}</div>
+          `,
+              )
+              .join("") ||
+            '<div class="admin-log-item"><time>now</time>No logs available yet.</div>'
+          }
+        </div>
+      </div>
+    `;
+  } catch (error) {
+    content.innerHTML = `
+      <div class="admin-section">
+        <h3>Dashboard unavailable</h3>
+        <div class="admin-log-item"><time>error</time>${error.message}</div>
+      </div>
+    `;
+  }
+
+  panel.classList.add("is-open");
+  panel.hidden = false;
+  panel.setAttribute("aria-hidden", "false");
+}
+
+function closeDeveloperDashboard() {
+  const panel = document.getElementById("adminDashboardPanel");
+  if (!panel) return;
+  panel.classList.remove("is-open");
+  panel.hidden = true;
+  panel.setAttribute("aria-hidden", "true");
+}
+
 const newChatBtn =
   document.querySelector(".new-chat-btn") ||
   document.getElementById("newChatBtn");
@@ -1701,11 +2226,29 @@ document
   .getElementById("sign-in-btn")
   ?.addEventListener("click", signInWithGoogle);
 document.getElementById("sign-out-btn")?.addEventListener("click", async () => {
-  await authClient?.auth.signOut();
+  if (authClient) {
+    await authClient.auth.signOut();
+  }
+  localStorage.removeItem("nico_demo_auth_token");
+  localStorage.removeItem("nico_demo_user");
+  updateAuthUi(null);
+});
+document
+  .getElementById("openAdminDashboardBtn")
+  ?.addEventListener("click", openDeveloperDashboard);
+document
+  .getElementById("closeAdminDashboardBtn")
+  ?.addEventListener("click", closeDeveloperDashboard);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeDeveloperDashboard();
+  }
 });
 
 // Initial setup
 ensureTypingIndicator();
 initializeSettingsPanel();
+initializeAuthScreen();
 initializeAuth();
 focusInput();
