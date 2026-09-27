@@ -12,7 +12,7 @@ from fastapi.responses import StreamingResponse
 from groq import AsyncGroq
 from google import genai
 from google.genai import types
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pypdf import PdfReader
 from docx import Document
 from supabase import Client, create_client
@@ -28,11 +28,19 @@ GEMINI_API_KEY = (os.getenv("GEMINI_API_KEY") or "").strip()
 RENDER_API_KEY = (os.getenv("RENDER_API_KEY") or "").strip()
 RENDER_SERVICE_ID = (os.getenv("RENDER_SERVICE_ID") or "").strip()
 RENDER_SERVICE_URL = (os.getenv("RENDER_SERVICE_URL") or "").strip()
+ALLOWED_ORIGINS = [
+  value.strip()
+  for value in (os.getenv("ALLOWED_ORIGINS") or "http://127.0.0.1:5500,http://localhost:5500").split(",")
+  if value.strip()
+]
+ADMIN_LOGIN = (os.getenv("ADMIN_LOGIN") or "admin").strip().lower()
+ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "admin@nico.local").strip().lower()
+ADMIN_PASSWORD = (os.getenv("ADMIN_PASSWORD") or "nicodeveloping").strip()
 DEVELOPER_ACCOUNT = {
   "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, "nico.developer.account")),
-  "username": "admin",
-  "password": "nicodeveloping",
-  "email": "admin@nico.local",
+  "username": ADMIN_LOGIN,
+  "password": ADMIN_PASSWORD,
+  "email": ADMIN_EMAIL,
   "full_name": "Matt Andrei",
   "role": "developer",
 }
@@ -71,7 +79,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+  allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -120,14 +128,14 @@ def is_reserved_developer_login(identifier: str, password: str):
   username = (identifier or "").strip().lower()
   candidate_password = (password or "").strip()
   return (
-    username in {"admin", "admin@nico.local"}
+    username in {ADMIN_LOGIN, ADMIN_EMAIL}
     and candidate_password == DEVELOPER_ACCOUNT["password"]
   )
 
 
 def is_reserved_developer_identifier(identifier: str):
   username = (identifier or "").strip().lower()
-  return username in {"admin", "admin@nico.local"}
+  return username in {ADMIN_LOGIN, ADMIN_EMAIL}
 
 
 def get_demo_user_from_token(token: str):
@@ -222,6 +230,28 @@ def auth_login(request: AuthRequest):
   email = normalize_email_from_identifier(identifier)
 
   if is_reserved_developer_login(identifier, password):
+    if supabase_client:
+      try:
+        response = supabase_client.auth.sign_in_with_password({
+          "email": DEVELOPER_ACCOUNT["email"],
+          "password": password,
+        })
+        user = response.user
+        session = response.session
+        if user and session:
+          payload = {
+            "id": user.id,
+            "email": user.email,
+            "user_metadata": {
+              **(getattr(user, "user_metadata", {}) or {}),
+              "role": DEVELOPER_ACCOUNT["role"],
+              "full_name": DEVELOPER_ACCOUNT["full_name"],
+            },
+          }
+          return {"user": payload, "token": session.access_token}
+      except Exception:
+        pass
+
     developer_user = {
       "id": DEVELOPER_ACCOUNT["id"],
       "email": DEVELOPER_ACCOUNT["email"],
@@ -375,6 +405,18 @@ class ChatRequest(BaseModel):
   conversation_id: str
   attachments: list[dict] = Field(default_factory=list)
   settings: dict = Field(default_factory=dict)
+
+  @model_validator(mode="after")
+  def validate_attachments(self):
+    if len(self.attachments) > 10:
+      raise ValueError("No more than 10 attachments are allowed")
+    total_bytes = sum(
+      len(item.get("data_url", ""))
+      for item in self.attachments
+    )
+    if total_bytes > 20_000_000:
+      raise ValueError("Attachments are too large")
+    return self
 
 
 class RenameRequest(BaseModel):

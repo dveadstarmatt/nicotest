@@ -15,22 +15,27 @@ create index if not exists conversations_user_id_idx
 alter table public.conversations enable row level security;
 alter table public.messages enable row level security;
 
+drop policy if exists "Users can view their conversations" on public.conversations;
 create policy "Users can view their conversations"
   on public.conversations for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can create their conversations" on public.conversations;
 create policy "Users can create their conversations"
   on public.conversations for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can update their conversations" on public.conversations;
 create policy "Users can update their conversations"
   on public.conversations for update
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can delete their conversations" on public.conversations;
 create policy "Users can delete their conversations"
   on public.conversations for delete
   using (auth.uid() = user_id);
 
+drop policy if exists "Users can view messages in their conversations" on public.messages;
 create policy "Users can view messages in their conversations"
   on public.messages for select
   using (
@@ -41,6 +46,7 @@ create policy "Users can view messages in their conversations"
     )
   );
 
+drop policy if exists "Users can create messages in their conversations" on public.messages;
 create policy "Users can create messages in their conversations"
   on public.messages for insert
   with check (
@@ -51,6 +57,7 @@ create policy "Users can create messages in their conversations"
     )
   );
 
+drop policy if exists "Users can delete messages in their conversations" on public.messages;
 create policy "Users can delete messages in their conversations"
   on public.messages for delete
   using (

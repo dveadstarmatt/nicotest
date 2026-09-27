@@ -861,11 +861,7 @@ function startTypewriterReveal(
     }
 
     if (latestText.length <= displayedText.length) {
-      if (typeof marked !== "undefined") {
-        contentDiv.innerHTML = marked.parse(latestText);
-      } else {
-        contentDiv.textContent = latestText;
-      }
+      contentDiv.innerHTML = renderMarkdown(latestText);
       contentDiv.style.visibility = "visible";
       attachCodeCopyButtons(contentDiv.closest(".message"));
       if (typeof onComplete === "function") onComplete();
@@ -891,6 +887,20 @@ function startTypewriterReveal(
     if (writerTimer) clearTimeout(writerTimer);
     if (animationFrame) cancelAnimationFrame(animationFrame);
   };
+}
+
+function renderMarkdown(text) {
+  if (typeof marked === "undefined") return escapeHtml(text);
+  const rendered = marked.parse(text);
+  return typeof DOMPurify !== "undefined"
+    ? DOMPurify.sanitize(rendered)
+    : escapeHtml(text);
+}
+
+function escapeHtml(text) {
+  const element = document.createElement("div");
+  element.textContent = text;
+  return element.innerHTML;
 }
 
 function attachCodeCopyButtons(messageDiv) {
@@ -922,7 +932,8 @@ function appendMessage(role, text, attachments = []) {
   msgDiv.className = `message ${role}`;
 
   if (role === "assistant") {
-    msgDiv.innerHTML = `<span class="avatar-tag">${settings.avatar}</span><div class="content">${typeof marked !== "undefined" ? marked.parse(text) : text}</div>`;
+    msgDiv.innerHTML = `<span class="avatar-tag"></span><div class="content">${renderMarkdown(text)}</div>`;
+    msgDiv.querySelector(".avatar-tag").textContent = settings.avatar;
     attachCodeCopyButtons(msgDiv);
   } else {
     const content = document.createElement("div");
@@ -1518,6 +1529,10 @@ const menuToggle =
 const sidebar = document.querySelector(".sidebar");
 const appLayout = document.querySelector(".app-layout");
 
+if (menuToggle && menuToggle.parentElement !== document.body) {
+  document.body.appendChild(menuToggle);
+}
+
 let sidebarOverlay = document.querySelector(".sidebar-overlay");
 if (!sidebarOverlay) {
   sidebarOverlay = document.createElement("div");
@@ -1532,7 +1547,9 @@ function setMobileSidebar(open, e) {
   }
   if (!sidebar) return;
 
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const isMobile = window.matchMedia(
+    "(max-width: 768px), (max-height: 500px)",
+  ).matches;
   sidebar.classList.toggle("mobile-open", isMobile && open);
   appLayout?.classList.toggle("sidebar-collapsed", !isMobile && !open);
 
@@ -1546,11 +1563,22 @@ function setMobileSidebar(open, e) {
 
   sidebarOverlay.classList.toggle("active", isMobile && open);
   sidebarOverlay.setAttribute("aria-hidden", String(!(isMobile && open)));
-  menuToggle?.setAttribute("aria-expanded", String(open));
+  if (menuToggle) {
+    menuToggle.classList.toggle("is-sidebar-open", isMobile && open);
+    menuToggle.setAttribute("aria-expanded", String(open));
+    menuToggle.setAttribute(
+      "aria-label",
+      open ? "Close sidebar" : "Open sidebar",
+    );
+    menuToggle.setAttribute("title", open ? "Close sidebar" : "Open sidebar");
+    menuToggle.textContent = open ? "×" : "☰";
+  }
 }
 
 function toggleMobileSidebar(e) {
-  const isMobile = window.matchMedia("(max-width: 768px)").matches;
+  const isMobile = window.matchMedia(
+    "(max-width: 768px), (max-height: 500px)",
+  ).matches;
   const isOpen = isMobile
     ? sidebar?.classList.contains("mobile-open")
     : !appLayout?.classList.contains("sidebar-collapsed");
@@ -1872,6 +1900,8 @@ function updateAuthUi(user) {
     userStatus.textContent = "Guest mode - chats are not saved";
     signInButton.hidden = false;
     signOutButton.hidden = true;
+    if (developerBadge) developerBadge.hidden = true;
+    if (ownerBadge) ownerBadge.hidden = true;
     currentUser = null;
     const restored = localStorage.getItem("active_chat_id");
     if (isValidConversationId(restored)) {
@@ -2080,11 +2110,11 @@ function initializeAuthScreen() {
       signInWithGoogle();
       return;
     }
-    finishDemoSignIn("Nico User");
+    alert("Google sign-in is not configured yet.");
   });
 
   appleButton?.addEventListener("click", () => {
-    finishDemoSignIn("Apple User");
+    alert("Apple sign-in is not configured yet.");
   });
 }
 
