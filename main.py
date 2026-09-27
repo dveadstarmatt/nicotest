@@ -30,7 +30,7 @@ RENDER_SERVICE_ID = (os.getenv("RENDER_SERVICE_ID") or "").strip()
 RENDER_SERVICE_URL = (os.getenv("RENDER_SERVICE_URL") or "").strip()
 ALLOWED_ORIGINS = [
   value.strip()
-  for value in (os.getenv("ALLOWED_ORIGINS") or "http://127.0.0.1:5500,http://localhost:5500").split(",")
+  for value in (os.getenv("ALLOWED_ORIGINS") or "http://127.0.0.1:5500,http://localhost:5500,https://nico-ai-assistant.onrender.com").split(",")
   if value.strip()
 ]
 ADMIN_LOGIN = (os.getenv("ADMIN_LOGIN") or "admin").strip().lower()

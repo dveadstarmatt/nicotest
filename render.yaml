@@ -24,7 +24,7 @@ services:
       - key: GEMINI_VISION_MODEL
         value: gemini-3.1-flash-lite
       - key: ALLOWED_ORIGINS
-        sync: false
+        value: https://nico-ai-assistant.onrender.com
 
   # Static frontend. Do not use Python/gunicorn for this URL.
   - type: web

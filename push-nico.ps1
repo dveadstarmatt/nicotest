@@ -34,7 +34,8 @@ $pushExitCode = $LASTEXITCODE
 # Show result
 if ($pushExitCode -eq 0) {
     Write-Host "`n✅ Successfully pushed to GitHub!" -ForegroundColor Green
-} else {
+}
+else {
     Write-Host "`n❌ Push failed. Check the errors above." -ForegroundColor Red
     exit $pushExitCode
 }
