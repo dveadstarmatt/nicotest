@@ -650,6 +650,40 @@ function addSelectedFiles(kind, event) {
   renderAttachments();
 }
 
+function getPastedImageExtension(mimeType) {
+  const extension = mimeType.split("/")[1]?.split(";")[0]?.toLowerCase();
+  return extension === "jpeg" ? "jpg" : extension || "png";
+}
+
+function addPastedImages(event) {
+  const clipboardItems = Array.from(event.clipboardData?.items || []);
+  const imageFiles = clipboardItems
+    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+
+  if (imageFiles.length === 0) return;
+
+  event.preventDefault();
+  imageFiles.forEach((file, index) => {
+    const extension = getPastedImageExtension(file.type);
+    const name = `pasted-image-${Date.now()}-${index + 1}.${extension}`;
+    const pastedFile = new File([file], name, {
+      type: file.type || "image/png",
+      lastModified: Date.now(),
+    });
+
+    selectedAttachments.push({
+      file: pastedFile,
+      kind: "images",
+      icon: "🖼️",
+      previewUrl: URL.createObjectURL(pastedFile),
+    });
+  });
+
+  renderAttachments();
+}
+
 document
   .getElementById("addFilesBtn")
   ?.addEventListener("click", () => selectFiles("files"));
@@ -1338,6 +1372,7 @@ if (sendBtn) {
 }
 
 if (userInput) {
+  userInput.addEventListener("paste", addPastedImages);
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
