@@ -34,7 +34,7 @@ ALLOWED_ORIGINS = [
   if value.strip()
 ]
 ADMIN_LOGIN = (os.getenv("ADMIN_LOGIN") or "admin").strip().lower()
-ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "admin@nico.local").strip().lower()
+ADMIN_EMAIL = (os.getenv("ADMIN_EMAIL") or "nicodeveloper86@gmail.com").strip().lower()
 ADMIN_PASSWORD = (os.getenv("ADMIN_PASSWORD") or "nicodeveloping").strip()
 DEVELOPER_ACCOUNT = {
   "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, "nico.developer.account")),
