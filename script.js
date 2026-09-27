@@ -655,21 +655,7 @@ function getPastedImageExtension(mimeType) {
   return extension === "jpeg" ? "jpg" : extension || "png";
 }
 
-function addPastedImages(event) {
-  const clipboard = event.clipboardData;
-  const clipboardItems = Array.from(clipboard?.items || []);
-  const itemImages = clipboardItems
-    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
-    .map((item) => item.getAsFile())
-    .filter(Boolean);
-  const fileImages = Array.from(clipboard?.files || []).filter((file) =>
-    file.type.startsWith("image/"),
-  );
-  const imageFiles = itemImages.length > 0 ? itemImages : fileImages;
-
-  if (imageFiles.length === 0) return;
-
-  event.preventDefault();
+function addImageAttachments(imageFiles) {
   imageFiles.forEach((file, index) => {
     const extension = getPastedImageExtension(file.type);
     const name = `pasted-image-${Date.now()}-${index + 1}.${extension}`;
@@ -689,12 +675,72 @@ function addPastedImages(event) {
   renderAttachments();
 }
 
+function getClipboardImageFiles(clipboard) {
+  const clipboardItems = Array.from(clipboard?.items || []);
+  const itemImages = clipboardItems
+    .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+    .map((item) => item.getAsFile())
+    .filter(Boolean);
+  const fileImages = Array.from(clipboard?.files || []).filter((file) =>
+    file.type.startsWith("image/"),
+  );
+  return itemImages.length > 0 ? itemImages : fileImages;
+}
+
+function addPastedImages(event) {
+  if (event.target !== userInput) return;
+  const imageFiles = getClipboardImageFiles(event.clipboardData);
+
+  if (imageFiles.length === 0) return;
+
+  event.preventDefault();
+  addImageAttachments(imageFiles);
+}
+
 document
   .getElementById("addFilesBtn")
   ?.addEventListener("click", () => selectFiles("files"));
 document
   .getElementById("addImagesBtn")
   ?.addEventListener("click", () => selectFiles("images"));
+document
+  .getElementById("pasteImageBtn")
+  ?.addEventListener("click", async () => {
+    addFilesDropdown?.classList.remove("open");
+    addFilesDropdown?.setAttribute("aria-hidden", "true");
+    addBtn?.setAttribute("aria-expanded", "false");
+
+    if (!navigator.clipboard?.read) {
+      alert(
+        "Image paste is not supported by this browser. Use the chat input paste action instead.",
+      );
+      return;
+    }
+
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      const imageFiles = [];
+      for (const clipboardItem of clipboardItems) {
+        const imageType = clipboardItem.types.find((type) =>
+          type.startsWith("image/"),
+        );
+        if (!imageType) continue;
+        const blob = await clipboardItem.getType(imageType);
+        imageFiles.push(blob);
+      }
+
+      if (imageFiles.length === 0) {
+        alert("No image was found in the clipboard.");
+        return;
+      }
+      addImageAttachments(imageFiles);
+    } catch (error) {
+      console.error("Could not read an image from the clipboard:", error);
+      alert(
+        "Clipboard access was blocked. Paste the image into the chat input instead.",
+      );
+    }
+  });
 document
   .getElementById("addCodeBtn")
   ?.addEventListener("click", () => selectFiles("code"));
@@ -1377,7 +1423,6 @@ if (sendBtn) {
 }
 
 if (userInput) {
-  userInput.addEventListener("paste", addPastedImages);
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -1385,6 +1430,8 @@ if (userInput) {
     }
   });
 }
+
+document.addEventListener("paste", addPastedImages);
 
 async function sendMessage() {
   const typedMessage = userInput.value.trim();
