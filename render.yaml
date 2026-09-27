@@ -23,6 +23,8 @@ services:
         sync: false
       - key: GEMINI_VISION_MODEL
         value: gemini-3.1-flash-lite
+      - key: ALLOWED_ORIGINS
+        sync: false
 
   # Static frontend. Do not use Python/gunicorn for this URL.
   - type: web

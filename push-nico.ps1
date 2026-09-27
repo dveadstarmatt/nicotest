@@ -18,9 +18,9 @@ if (-not (Test-Path .git)) {
 Write-Host "`n=== Git Status ===" -ForegroundColor Cyan
 git status --short
 
-# Stage all changes
+# Stage project changes while excluding generated Electron dependencies.
 Write-Host "`nStaging all changes..." -ForegroundColor Yellow
-git add .
+git add . -- ':!nico-desktop/node_modules'
 
 # Commit with message
 Write-Host "Committing with message: '$message'" -ForegroundColor Yellow
