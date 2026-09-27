@@ -656,11 +656,16 @@ function getPastedImageExtension(mimeType) {
 }
 
 function addPastedImages(event) {
-  const clipboardItems = Array.from(event.clipboardData?.items || []);
-  const imageFiles = clipboardItems
+  const clipboard = event.clipboardData;
+  const clipboardItems = Array.from(clipboard?.items || []);
+  const itemImages = clipboardItems
     .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
     .map((item) => item.getAsFile())
     .filter(Boolean);
+  const fileImages = Array.from(clipboard?.files || []).filter((file) =>
+    file.type.startsWith("image/"),
+  );
+  const imageFiles = itemImages.length > 0 ? itemImages : fileImages;
 
   if (imageFiles.length === 0) return;
 
